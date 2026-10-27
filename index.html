@@ -162,6 +162,17 @@ details dd{margin:0;font-size:13.5px;white-space:pre-line;overflow-wrap:anywhere
 .checks small{display:block;color:var(--muted);font-size:12.5px}
 .err{background:var(--bad-bg);border-radius:12px;padding:14px 16px;font-size:14px;display:flex;flex-direction:column;gap:4px}
 .err b{color:var(--bad)}
+/* 비밀번호 화면 */
+.gate{position:fixed;inset:0;z-index:50;display:grid;place-items:center;background:var(--bg);padding:24px max(16px,env(safe-area-inset-right)) 24px max(16px,env(safe-area-inset-left))}
+.gate form{width:100%;max-width:380px;background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:28px 24px;display:flex;flex-direction:column;gap:14px}
+.gate .lock{width:44px;height:44px;border-radius:14px;background:var(--accent);color:var(--bg);display:grid;place-items:center;font-size:20px}
+.gate h2{margin:0;font-size:20px;font-weight:800;letter-spacing:-.02em}
+.gate p{margin:0;color:var(--muted);font-size:14px}
+.gate input[type="password"]{font:inherit;font-size:16px;color:var(--fg);background:var(--sunk);border:1px solid var(--line);border-radius:12px;padding:12px 14px;width:100%}
+.gate .msg{min-height:20px;font-size:13.5px;color:var(--bad)}
+.gate button{font:inherit;font-size:15px;font-weight:700;color:var(--bg);background:var(--fg);border:0;border-radius:12px;padding:12px;cursor:pointer}
+.gate button:disabled{opacity:.6;cursor:wait}
+body.locked header,body.locked main,body.locked footer{display:none}
 footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
 [hidden]{display:none!important}
 
@@ -171,7 +182,17 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
 @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
 </style>
 </head>
-<body>
+<body class="locked">
+<div class="gate" id="gate">
+  <form id="gate-form" autocomplete="off">
+    <div class="lock" aria-hidden="true">🔒</div>
+    <div><h2 id="gate-title">지지부부 대시보드</h2><p>접근 권한이 있는 분만 볼 수 있어요. 비밀번호를 입력해 주세요.</p></div>
+    <label for="gate-pw" class="note">비밀번호</label>
+    <input type="password" id="gate-pw" required autofocus>
+    <span class="msg" id="gate-msg" role="alert"></span>
+    <button type="submit" id="gate-btn">입장하기</button>
+  </form>
+</div>
 
 <header>
   <div class="wrap">
@@ -185,6 +206,7 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
         <button class="btn" id="refresh" type="button">새로고침</button>
         <label class="btn" for="file-input">CSV 직접 올리기</label>
         <input type="file" id="file-input" accept=".csv,text/csv" multiple hidden>
+        <button class="btn" id="logout" type="button">잠그기</button>
       </div>
     </div>
     <nav class="tabs" role="tablist" aria-label="카테고리">
@@ -366,13 +388,10 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
    ① 설정 — 시트 주소가 바뀌면 여기만 고치세요
    ================================================================== */
 const CREATOR = '지지부부';
-const SHEETS = {
-  schedule:  'https://docs.google.com/spreadsheets/d/e/2PACX-1vTGtLlIBEyCW4u3pTErL_Uj8JtjGliF-uy2aDU654BArPRir138d14YdykWXQ6Sv4AJ3rSgEyRfMyKb/pub?gid=580300489&single=true&output=csv',  // 통합 스케줄
-  inbound:   'https://docs.google.com/spreadsheets/d/e/2PACX-1vTGtLlIBEyCW4u3pTErL_Uj8JtjGliF-uy2aDU654BArPRir138d14YdykWXQ6Sv4AJ3rSgEyRfMyKb/pub?gid=0&single=true&output=csv',          // 광고 인입 현황
-  confirmed: 'https://docs.google.com/spreadsheets/d/e/2PACX-1vTGtLlIBEyCW4u3pTErL_Uj8JtjGliF-uy2aDU654BArPRir138d14YdykWXQ6Sv4AJ3rSgEyRfMyKb/pub?gid=1407243256&single=true&output=csv', // 광고 확정 진행건
-  ideas:     'https://docs.google.com/spreadsheets/d/e/2PACX-1vTGtLlIBEyCW4u3pTErL_Uj8JtjGliF-uy2aDU654BArPRir138d14YdykWXQ6Sv4AJ3rSgEyRfMyKb/pub?gid=1719339858&single=true&output=csv', // 아이템 리스트
-  stats:     'https://docs.google.com/spreadsheets/d/e/2PACX-1vTGtLlIBEyCW4u3pTErL_Uj8JtjGliF-uy2aDU654BArPRir138d14YdykWXQ6Sv4AJ3rSgEyRfMyKb/pub?gid=1840144714&single=true&output=csv', // 월별 인게이지먼트 / 조회수
-};
+// 시트 링크 5개는 비밀번호로 암호화되어 있어요 (통합 스케줄 · 광고 인입 · 광고 확정 · 아이템 · 인게이지먼트).
+// 비밀번호나 링크를 바꾸려면 새로 암호화해야 합니다.
+const LOCKED_SHEETS = {"v":1,"iter":250000,"salt":"2ML/2swTIPFiB0vyYwhGLQ==","iv":"QzW45u8xe5OewVel","data":"vt/59hfNUSTNVQcye5eIybwnNAGKQgs+F6HKfGpJvSms77ZGJA8ZCfaV+wGRNdiBrWli2Pd70ZoVJf43cu2qzpoELLO0uU22XnpCtqfUf6GJkTJa4nSCWfDZ7DH91h2OJKgiE63bFuuWoyulM1fyWpWEnGX2OOgAxpqSbTxPgIsoMLPw393ewGRpbKMlh6FxBy+eM0pWw0JnGyv3ApxjeoJ5vGChTf1wI6szYAzUV6vWbjahcaza4idA/jaTGkDoQV6FTR4HVROLt3RErGA9LKgVHfFPV+UFwawQQ58yWE1vSNKRsOEcK3YFYf2gFNkTV5lqUf6f0N7Mnbt65Ayf6f8T5K4GOs/Jn82+KPYaNFCxsr8kmo0K3qj4axPBnn/N7+X/ztEtL46DhEMQvtBZTt+15TBr59dPVNfIDod7n9BIqNL+fIB8txJ3eMsu7V3m2i29lk3ym3pLdT/PgafCGYZIR8RsQp5KkPhPUnJNeSKwidNRePh9BPHQEIZl6+3lJvxucmINwf+eqOH0p6g5HtaGE9ogLIyk0m/2Xt+2OgW5bX9Knvv9LQmUYaF08z6BlhG9RM0wMcJallPZJckYibMr0RR9BcyAlRoURSFfyZCRFtRvJAJ/FBWjq8QThClFHfct8ly+kupcS9ABszeYeV+5GDHynlx7mD1NGY9TEWShptZ2T42sR+1ryEKbdgO6X8/6jc9iVkSyxYOxOXoRgkOHovDkEnf0HAsfj//TOglU+zjEKFrx8J6w7AO6qWjLWWnwbfvlb2XRjl303ZCeQZiZ6ZWTXo65FXc+vFkOOozUTO5yyC+GceRpOfq2KuJvpGhsFJ64n7Jm0Dbf8SbfoTIVvDF/aSZDSQtZzOuro6tNSaj+hGOVGIHWQj0r1FmHDJ319x778DA2+c0WGe2QWOsBNgrSdPuoEHqM3eFeJRRty6Sb9FTxZWvBMpwdwlmxApFr7k8udXESc4LCNqtN0JyHIgCyj0HdTP5n2DSquvVtzfpZHLcXMNs4mY7JxrsR2FYFmSTTwOyIgpO0tv8MQo5u5yH+x5/UgQcOViH2ALtCpYyXUuihUHZaL6ReTbfuEVNnhp5uiubqxVbYPDAyg1WJ78/w8zbi61Zf3iiZwuLUT4hA1/65fdpaFTOQzfHFlLcQedW0q9wOZ/TyCo/Y4SK5tz6VPCL5d+bYcjQAlEJ3yN9ls/8KvLplr4jPUOgfw1WoIQ=="};
+let SHEETS = {};
 const SCHEDULE_START_YEAR = 2026;   // 스케줄 시트 첫 달(예: 10월 스케줄)의 연도
 const STATS_YEAR = 2026;            // 인게이지먼트 시트의 연도
 const SHOW_FEES = true;             // 광고 단가 표시 (false로 바꾸면 숨김)
@@ -1010,11 +1029,47 @@ $('#file-input').addEventListener('change', async e => {
   setStatus(); renderView();
 });
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', renderView);
-setInterval(() => { if (document.visibilityState === 'visible') loadAll(); }, AUTO_REFRESH_MINUTES * 60 * 1000);
-
 $('#page-title').textContent = `${CREATOR} 대시보드`; document.title = `${CREATOR} 대시보드`;
-showView(location.hash.slice(1), false);
-loadAll();
+/* ── 비밀번호 잠금 ── */
+const fromB64 = t => Uint8Array.from(atob(t), ch => ch.charCodeAt(0));
+async function unlock(pw) {
+  const L = LOCKED_SHEETS, enc = new TextEncoder();
+  const base = await crypto.subtle.importKey('raw', enc.encode(pw), 'PBKDF2', false, ['deriveKey']);
+  const key = await crypto.subtle.deriveKey({ name: 'PBKDF2', salt: fromB64(L.salt), iterations: L.iter, hash: 'SHA-256' }, base, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(L.iv) }, key, fromB64(L.data));   // 비밀번호가 틀리면 여기서 오류
+  return JSON.parse(new TextDecoder().decode(plain));
+}
+let started = false, timer = null;
+function enter(sheets) {
+  SHEETS = sheets;
+  document.body.classList.remove('locked'); $('#gate').hidden = true;
+  if (!started) { started = true; showView(location.hash.slice(1), false); timer = setInterval(() => { if (document.visibilityState === 'visible') loadAll(); }, AUTO_REFRESH_MINUTES * 60 * 1000); }
+  loadAll();
+}
+$('#gate-title').textContent = `${CREATOR} 대시보드`;
+$('#gate-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const pw = $('#gate-pw').value, btn = $('#gate-btn');
+  if (!window.crypto || !crypto.subtle) { $('#gate-msg').textContent = '이 브라우저는 지원되지 않아요. 크롬·사파리·엣지 최신 버전으로 열어 주세요.'; return; }
+  btn.disabled = true; btn.textContent = '확인 중…'; $('#gate-msg').textContent = '';
+  try {
+    const sheets = await unlock(pw);
+    try { sessionStorage.setItem('dash-unlocked', JSON.stringify(sheets)); } catch (_) {}
+    $('#gate-pw').value = '';
+    enter(sheets);
+  } catch (_) {
+    $('#gate-msg').textContent = '비밀번호가 올바르지 않습니다.';
+    $('#gate-pw').select();
+  } finally { btn.disabled = false; btn.textContent = '입장하기'; }
+});
+$('#logout').addEventListener('click', () => {
+  try { sessionStorage.removeItem('dash-unlocked'); } catch (_) {}
+  location.reload();
+});
+// 같은 창에서 이미 입장했다면 다시 묻지 않음 (창을 닫으면 다시 비밀번호)
+let saved = null;
+try { saved = JSON.parse(sessionStorage.getItem('dash-unlocked') || 'null'); } catch (_) {}
+if (saved && saved.schedule) enter(saved); else $('#gate-pw').focus();
 }
 </script>
 </body>
