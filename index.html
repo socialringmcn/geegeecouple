@@ -157,6 +157,20 @@ body.memo-open .memo-toggle{display:none}
 .waitlist div{background:var(--sunk);border-radius:10px;padding:9px 12px;font-size:13px;min-width:0}
 .waitlist b{display:block;font-size:14px}
 .waitlist small{color:var(--muted)}
+.edit-body{gap:12px}
+.edit-body label{display:flex;flex-direction:column;gap:4px;font-size:12.5px;font-weight:700;color:var(--muted)}
+.edit-body input,.edit-body textarea{font:inherit;font-size:14px;font-weight:400;color:var(--fg);background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:8px 10px;width:100%}
+.edit-body textarea{min-height:60px;resize:vertical}
+.edit-body input:focus-visible,.edit-body textarea:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.edit-body .changed{border-color:var(--warn);background:var(--warn-bg)}
+.quick{display:flex;flex-wrap:wrap;gap:6px;margin-top:2px}
+.edit-sub{font-size:12.5px;color:var(--muted);margin:-4px 0 0}
+#edit-modal .modal-card{max-width:560px}
+.ins{display:flex;flex-wrap:wrap;gap:4px}
+.ins span{font-size:12px;background:var(--sunk);border-radius:999px;padding:2px 8px;color:var(--muted);white-space:nowrap}
+.ins b{color:var(--fg)}
+#cf-insight-panel .kpis .kpi{background:var(--sunk);border-color:transparent}
+#cf-insight-panel .kpis .kpi.hero{background:var(--accent)}
 .badge{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;margin-left:6px;border-radius:999px;background:var(--bad);color:#fff;font-size:11px;font-weight:800;vertical-align:1px}
 .pend-panel{border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}
 .dec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
@@ -343,6 +357,17 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
     <div class="modal-foot"><button class="btn" type="button" id="notice-today">오늘 하루 보지 않기</button><button class="btn primary" type="button" id="notice-ok">확인</button></div>
   </div>
 </div>
+<div class="modal" id="edit-modal" role="dialog" aria-modal="true" aria-labelledby="edit-title" hidden>
+  <form class="modal-card" id="edit-form" autocomplete="off">
+    <div class="modal-head"><span aria-hidden="true">✏️</span><h2 id="edit-title">문의 수정</h2><button class="x" type="button" id="edit-x" aria-label="닫기">×</button></div>
+    <div class="modal-body edit-body" id="edit-body"></div>
+    <div class="modal-foot">
+      <label class="note" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="edit-log" checked> 메모장에 수정 기록 남기기</label>
+      <span style="display:flex;gap:8px"><button class="btn" type="button" id="edit-cancel">취소</button><button class="btn primary" type="submit" id="edit-save">시트에 저장</button></span>
+    </div>
+    <p class="memo-msg" id="edit-msg" role="status" style="padding:0 20px 14px;margin:0"></p>
+  </form>
+</div>
 <header>
   <div class="wrap">
     <div class="top">
@@ -471,6 +496,12 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
     <div class="errbox" id="err-confirmed" hidden></div>
     <div class="kpis" id="cf-kpis"></div>
     <div class="grid">
+      <section class="panel wide" id="cf-insight-panel">
+        <div class="phead"><div><h3>게시물 인사이트</h3><p id="ins-desc">광고 게시물 반응 · 시트 "게시물 인사이트" 칸 기준</p></div></div>
+        <div class="kpis" id="ins-kpis"></div>
+        <div class="tbl"><table id="ins-table"></table></div>
+        <p class="note" id="ins-note"></p>
+      </section>
       <section class="panel" id="cf-fee-panel">
         <div class="phead"><div><h3>월별 진행 단가</h3><p>업로드일 기준 · VAT 제외</p></div></div>
         <div class="chart-box"><canvas id="c-cf-month" role="img" aria-label="업로드 월별 광고 단가 합계"></canvas></div>
@@ -661,6 +692,25 @@ function parseDate(v) {
   if (mo < 1 || mo > 12 || d < 1 || d > 31) return null;
   return `${m[1]}-${String(mo).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 }
+// 게시물 인사이트 칸 읽기: "조회수 12.3만 / 좋아요 2,100 / 댓글 85" 같은 글 + 링크
+const INSIGHT_KEYS = [['views', '조회수', /조회수|조회|재생|뷰|views?|plays?/i], ['reach', '도달', /도달|reach/i], ['likes', '좋아요', /좋아요|하트|likes?/i],
+  ['comments', '댓글', /댓글|comments?/i], ['saves', '저장', /저장|saves?/i], ['shares', '공유', /공유|shares?|리포스트/i], ['er', '참여율', /참여율|인게이지먼트율|engagement\s*rate|\bER\b/i]];
+function parseInsight(text) {
+  const raw = String(text || '').trim(), m = {};
+  const links = (raw.match(/https?:\/\/[^\s,<>"]+/g) || []);
+  const body = raw.replace(/https?:\/\/[^\s,<>"]+/g, ' ');
+  for (const [k, , re] of INSIGHT_KEYS) {
+    const r = new RegExp('(?:' + re.source + ')\\s*[:：=]?\\s*([\\d.,]+)\\s*(만|천|억|%|k|K|m|M)?', 'i');
+    const hit = body.match(r);
+    if (!hit) continue;
+    let n = parseFloat(hit[1].replace(/,/g, '')); const u = hit[2] || '';
+    if (!Number.isFinite(n)) continue;
+    if (u === '%' || k === 'er') { m[k] = n; continue; }
+    n *= { 만: 1e4, 천: 1e3, 억: 1e8, k: 1e3, K: 1e3, m: 1e6, M: 1e6 }[u] || 1;
+    m[k] = Math.round(n);
+  }
+  return { raw, m, links, text: body.trim() };
+}
 // "2026-02-28" + "3개월" / "1년" / "2주" / "30일" → 끝나는 날짜
 function addPeriod(start, text) {
   const m = String(text || '').replace(/\s/g, '').match(/^(\d+)(개월|달|년|주|일)$/);
@@ -846,7 +896,8 @@ function parseInbound(rows) {
       brand: v(r, 'brand'), agency: v(r, 'agency'), cat: v(r, 'cat'), product: v(r, 'product'), statusRaw: v(r, 'status'),
       status: classifyStatus(v(r, 'status'), v(r, 'comm')), channel: v(r, 'channel'), platform: v(r, 'platform'), wish: v(r, 'wish'),
       note: [v(r, 'note'), v(r, 'note2')].filter(Boolean).join(' / '), comm: v(r, 'comm'), owner: v(r, 'owner'), settle: v(r, 'settle'),
-      fee: v(r, 'fee'), contact: v(r, 'contact'), chanRaw: clean(v(r, 'chan')), links: findLinks(v(r, 'link')), stage: stageOf(v(r, 'status')) });
+      fee: v(r, 'fee'), contact: v(r, 'contact'), chanRaw: clean(v(r, 'chan')), links: findLinks(v(r, 'link')), stage: stageOf(v(r, 'status')),
+      raw: Object.fromEntries(['type', 'cat', 'product', 'status', 'comm', 'platform', 'channel', 'wish', 'owner', 'fee', 'note', 'note2', 'link', 'settle'].map(k => [k, v(r, k)])) });
   }
   const checks = [{ st: 'ok', t: `문의 ${items.length}건을 읽었어요 (빈 줄은 건너뜀)` }];
   const noDate = items.filter(x => !x.date);
@@ -863,7 +914,7 @@ function parseInbound(rows) {
   if (C.chan >= 0) checks.push({ st: 'info', t: `${CHANNEL_CHECK_FROM_ROW}행 이후 ${from.length}건의 채널 의사(A열): 진행 희망 ${ck('y')} · 진행 안 함 ${ck('n')} · 보류 ${ck('hold')} · 확인 대기 ${ck('pending')} · 선제안 ${ck('proposal')}${ck('other') ? ` · 기타 ${ck('other')}` : ''}`,
     s: ck('other') ? '기타: ' + [...new Set(from.filter(x => chanKey(x.chanRaw, x.row, x.type) === 'other').map(x => x.chanRaw))].join(', ') : '' });
   else checks.push({ st: 'ng', t: '채널 의사(y/n) 열을 찾지 못했어요. 맨 첫 열에 y/n를 적고 있는지 확인해 주세요.' });
-  return { items, rules: findRules(g), checks };
+  return { items, rules: findRules(g), checks, cols: C };
 }
 // 셀 안의 링크 찾기 (https:// 없이 www.… 로 적어도 인식)
 function findLinks(text) {
@@ -902,7 +953,7 @@ function parseConfirmed(rows) {
   const M = headerMap(g[hi]);
   const C = { type: col(M, '유형'), date: col(M, '문의일'), brand: col(M, '브랜드'), agency: col(M, '대행사'), cat: col(M, '카테고리'),
     product: col(M, '제품명'), channel: col(M, '업로드 채널'), platform: col(M, '요청플랫폼'), upload: col(M, '업로드일'),
-    fee: col(M, '단가'), contract: col(M, '계약서'), keep: col(M, '유지'), second: col(M, '2차'), contact: col(M, '담당자'), note: col(M, '비고') };
+    fee: col(M, '단가'), contract: col(M, '계약서'), insight: col(M, '인사이트'), keep: col(M, '유지'), second: col(M, '2차'), contact: col(M, '담당자'), note: col(M, '비고') };
   const v = (r, k) => (C[k] >= 0 ? r[C[k]] : '');
   const items = [];
   for (let i = hi + 1; i < g.length; i++) {
@@ -914,7 +965,8 @@ function parseConfirmed(rows) {
       fee: parseNum(v(r, 'fee')), rawFee: v(r, 'fee'), contact: v(r, 'contact'), note: v(r, 'note'),
       postUrl: /^https?:\/\//.test(v(r, 'channel')) ? v(r, 'channel') : '',
       contract: /^https?:\/\//.test(v(r, 'contract')) ? v(r, 'contract') : '',
-      keep: clean(v(r, 'keep')) === '-' ? '' : clean(v(r, 'keep')), second: clean(v(r, 'second')) === '-' ? '' : clean(v(r, 'second')) });
+      keep: clean(v(r, 'keep')) === '-' ? '' : clean(v(r, 'keep')), second: clean(v(r, 'second')) === '-' ? '' : clean(v(r, 'second')),
+      insight: parseInsight(v(r, 'insight')) });
   }
   items.forEach(x => { x.keepUntil = x.upload ? addPeriod(x.upload, x.keep) : null; x.secondUntil = x.upload ? addPeriod(x.upload, x.second) : null; });
   const fees = items.filter(x => x.fee !== null);
@@ -926,6 +978,11 @@ function parseConfirmed(rows) {
   const badUp = items.filter(x => x.rawUpload && !x.upload);
   if (badUp.length) checks.push({ st: 'ng', t: `업로드일이 날짜 형식이 아닌 ${badUp.length}건이 있어요 (예: 26.08.07 형식으로 입력)`, s: badUp.map(x => `${x.row}행 ${x.brand}: "${x.rawUpload}"`).join(' · ') });
   const withPost = items.filter(x => x.postUrl).length, withContract = items.filter(x => x.contract).length;
+  if (C.insight >= 0) {
+    const ins = items.filter(x => x.insight.raw), num = items.filter(x => Object.keys(x.insight.m).length);
+    checks.push({ st: 'info', t: `게시물 인사이트: 입력 ${ins.length}건 (숫자로 읽은 것 ${num.length}건 · 링크 ${items.filter(x => x.insight.links.length).length}건)`,
+      s: ins.length ? '' : '인사이트 칸에 "조회수 12.3만 / 좋아요 2,100 / 댓글 85 / 저장 340 / 공유 52"처럼 적거나, 인사이트 캡처 링크를 넣으면 대시보드에 정리돼요.' });
+  }
   checks.push({ st: 'info', t: `게시물 링크 ${withPost}건 · 계약서 링크 ${withContract}건 · 게시물 유지기간 입력 ${items.filter(x => x.keep).length}건` });
   const shifted = items.filter(x => !x.channel && /인스타|유튜브/.test(x.product));
   if (shifted.length) checks.push({ st: 'info', t: `업로드 채널 칸이 비고 제품명에 채널이 적힌 ${shifted.length}건이 있어요 (칸 밀림 확인)`, s: shifted.map(x => `${x.row}행 ${x.brand}`).join(' · ') });
@@ -1058,7 +1115,7 @@ function toRows(text) {
   if (/^\s*</.test(text)) throw new Error('CSV가 아닌 웹페이지를 받았어요. 웹에 게시 형식을 "쉼표로 구분된 값(.csv)"으로 골랐는지 확인해 주세요.');
   return Papa.parse(text, { skipEmptyLines: false }).data;
 }
-function apply(key, rows, src) { D[key] = PARSERS[key](rows); delete ERR[key]; SRC[key] = src; }
+function apply(key, rows, src) { D[key] = PARSERS[key](rows); delete ERR[key]; SRC[key] = src; if (key === 'inbound' && typeof reapplyEdits === 'function') reapplyEdits(); }
 
 function setStatus() {
   const t = new Date(), hm = `${t.getHours()}:${String(t.getMinutes()).padStart(2, '0')}`;
@@ -1437,6 +1494,7 @@ function renderPending() {
       ${linkHtml(x)}
       <div class="facts">${[x.cat, x.type, x.platform || x.channel, x.wish && '희망 ' + x.wish, SHOW_FEES && x.fee].filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('')}</div>
       ${x.comm || x.note ? `<div class="comm">${esc([x.comm, x.note].filter(Boolean).join(' · '))}</div>` : ''}
+      ${ready ? `<button type="button" class="linkbtn" data-edit="${x.row}" style="align-self:flex-start">✏️ 내용 수정</button>` : ''}
       ${ready ? `<input type="text" maxlength="200" placeholder="의견 (선택) 예: 일정만 맞으면 좋아요" aria-label="${esc(x.brand)} 의견">
       <div class="dec-btns"><button type="button" class="y" data-v="y">진행 희망</button><button type="button" class="n" data-v="n">진행 안 함</button><button type="button" data-v="hold">보류</button></div>` : ''}
     </article>`; }).join('') : '<p class="empty">채널 확인이 필요한 문의가 없어요. 👍</p>';
@@ -1486,6 +1544,80 @@ $('#in-table').addEventListener('change', e => {
   decide(+sel.dataset.row, sel.value, '', [sel]);
 });
 
+/* ── 문의 목록 수정 → 구글 시트에 바로 저장 ── */
+const EDIT_FIELDS = [
+  ['status', '진행확정 여부 (소통 단계)', 'input'], ['comm', '소통 현황', 'textarea'], ['cat', '카테고리', 'input'], ['product', '제품명', 'textarea'],
+  ['type', '유형', 'input'], ['platform', '요청 플랫폼', 'input'], ['wish', '희망 일정', 'input'], ['owner', '담당자', 'input'],
+  ['fee', '진행 단가', 'input'], ['link', '링크', 'input'], ['note', '비고', 'textarea']];
+let EDITS = {};   // 저장 직후 시트 웹 게시(CSV)가 갱신되기 전까지 화면에 고친 값을 유지
+try { EDITS = JSON.parse(sessionStorage.getItem('inbound-edits') || '{}'); } catch (_) {}
+const saveEdits = () => { try { sessionStorage.setItem('inbound-edits', JSON.stringify(EDITS)); } catch (_) {} };
+function applyFields(x, f) {
+  for (const [k, v] of Object.entries(f)) {
+    x.raw[k] = v;
+    if (k === 'type') x.type = clean(v) || '미기재';
+    else if (k === 'status') { x.statusRaw = v; x.stage = stageOf(v); x.status = classifyStatus(v, x.comm); }
+    else if (k === 'note') x.note = [v, x.raw.note2].filter(Boolean).join(' / ');
+    else if (k === 'link') x.links = findLinks(v);
+    else x[k] = v;
+  }
+}
+function reapplyEdits() {
+  if (!D.inbound) return;
+  for (const [row, e] of Object.entries(EDITS)) {
+    const x = D.inbound.items.find(i => i.row === +row);
+    const caughtUp = x && Object.entries(e.fields).every(([k, v]) => clean(x.raw[k]) === clean(v));
+    if (!x || clean(x.brand) !== e.brand || caughtUp || Date.now() - e.at > 20 * 60 * 1000) delete EDITS[row];
+    else applyFields(x, e.fields);
+  }
+  saveEdits();
+}
+let editing = null;
+function openEdit(row) {
+  const I = D.inbound, x = I && I.items.find(i => i.row === row); if (!x) return;
+  editing = x;
+  const d = new Date(), today = `${d.getMonth() + 1}/${d.getDate()}`;
+  const fields = EDIT_FIELDS.filter(([k]) => I.cols[k] >= 0 && (k !== 'fee' || SHOW_FEES));
+  $('#edit-title').textContent = `${x.brand || x.row + '행'} 수정`;
+  $('#edit-body').innerHTML = `<p class="edit-sub">${x.date ? x.date.slice(2).replace(/-/g, '.') + ' 문의 · ' : ''}시트 ${x.row}행 · 고친 칸만 저장돼요</p>` + fields.map(([k, l, t]) => {
+    const val = esc(x.raw[k] || ''), id = 'ef-' + k;
+    const input = t === 'textarea' ? `<textarea id="${id}" data-f="${k}" maxlength="2000">${val}</textarea>` : `<input id="${id}" data-f="${k}" type="text" maxlength="2000" value="${val}">`;
+    const quick = k === 'status' ? `<span class="quick">${['1차 회신', `1차 회신-리마인드 ${today}`, '픽스', '불발'].map(q => `<button type="button" class="chip-btn" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</span>` : '';
+    return `<label for="${id}">${l}${input}${quick}</label>`;
+  }).join('');
+  $('#edit-msg').textContent = ''; $('#edit-save').disabled = false;
+  $('#edit-modal').hidden = false; $('#ef-status') ? $('#ef-status').focus() : 0;
+}
+function closeEdit() { $('#edit-modal').hidden = true; editing = null; }
+$('#edit-body').addEventListener('click', e => { const q = e.target.closest('[data-q]'); if (q) { const i = $('#ef-status'); i.value = q.dataset.q; i.dispatchEvent(new Event('input', { bubbles: true })); } });
+$('#edit-body').addEventListener('input', e => { const f = e.target.dataset.f; if (f && editing) e.target.classList.toggle('changed', e.target.value !== (editing.raw[f] || '')); });
+$('#edit-x').addEventListener('click', closeEdit); $('#edit-cancel').addEventListener('click', closeEdit);
+$('#edit-modal').addEventListener('click', e => { if (e.target.id === 'edit-modal') closeEdit(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#edit-modal').hidden) closeEdit(); });
+$('#edit-form').addEventListener('submit', async e => {
+  e.preventDefault(); if (!editing) return;
+  const x = editing, I = D.inbound, msg = $('#edit-msg'), btn = $('#edit-save');
+  const changes = [...$('#edit-body').querySelectorAll('[data-f]')].filter(el => el.value !== (x.raw[el.dataset.f] || ''))
+    .map(el => ({ field: el.dataset.f, col: I.cols[el.dataset.f] + 1, value: el.value }));
+  if (!changes.length) { msg.className = 'memo-msg bad'; msg.textContent = '바뀐 내용이 없어요.'; return; }
+  btn.disabled = true; msg.className = 'memo-msg'; msg.textContent = '시트에 저장 중…';
+  try {
+    const j = await memoCall('POST', { action: 'edit', row: x.row, brand: clean(x.brand), changes, log: $('#edit-log').checked, role: ROLE, by: ROLE_NAME(ROLE) });
+    const f = Object.fromEntries(changes.map(c => [c.field, c.value]));
+    EDITS[x.row] = { brand: clean(x.brand), fields: { ...((EDITS[x.row] || {}).fields || {}), ...f }, at: Date.now() }; saveEdits();
+    applyFields(x, f);
+    if (j.memos) { MEMO = { ...(MEMO || {}), memos: j.memos }; renderMemos(); }
+    if (j.decisions) setDecisions(j.decisions);
+    closeEdit(); renderView();
+    const dm = $('#dec-msg'); dm.className = 'memo-msg ok'; dm.textContent = `${x.brand}: ${changes.length}칸을 시트에 저장했어요.`;
+  } catch (err) {
+    msg.className = 'memo-msg bad';
+    msg.textContent = /bad column/.test(err.message) || err.message.includes('처리하지') ? '저장하지 못했어요. 시트에서 행이나 열이 옮겨졌을 수 있어요. 새로고침 후 다시 시도해 주세요.' : `저장하지 못했어요. ${err.message}`;
+    btn.disabled = false;
+  }
+});
+document.addEventListener('click', e => { const b = e.target.closest('[data-edit]'); if (b) openEdit(+b.dataset.edit); });
+
 function renderInboundTable() {
   const I = D.inbound; if (!I) return;
   const q = $('#in-q').value.trim().toLowerCase(), st = $('#in-status').value, tp = $('#in-type').value, mo = $('#in-month').value, ch = $('#in-chan').value;
@@ -1501,7 +1633,7 @@ function renderInboundTable() {
     <td class="nw">${x.date ? x.date.slice(2).replace(/-/g, '.') : esc(x.rawDate)}</td>
     <td class="nw">${chanPill(x)}${decideReady() && x.row >= CHANNEL_CHECK_FROM_ROW ? `<br><select class="chan-sel" data-row="${x.row}" aria-label="${esc(x.brand)} 채널 의사 변경">${[['', '바꾸기…'], ['y', '진행 희망 (Y)'], ['n', '진행 안 함 (N)'], ['hold', '보류'], ['clear', '선택 취소']].map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>` : ''}</td>
     <td class="nw">${stagePill(stageEff(x))}${x.statusRaw && !/^(y|n|-)$/i.test(x.statusRaw) ? `<small style="white-space:normal;min-width:110px">${esc(x.statusRaw)}</small>` : ''}${x.done ? '<small>프로젝트 완료</small>' : ''}</td>
-    <td><b>${esc(x.brand) || '–'}</b>${x.agency && x.agency !== '-' ? `<small>${esc(x.agency)}</small>` : ''}${linkHtml(x)}</td>
+    <td><b>${esc(x.brand) || '–'}</b>${x.agency && x.agency !== '-' ? `<small>${esc(x.agency)}</small>` : ''}${linkHtml(x)}${decideReady() ? `<button type="button" class="linkbtn" data-edit="${x.row}" style="margin-top:4px">✏️ 수정</button>` : ''}${EDITS[x.row] ? '<small style="color:var(--warn)">방금 수정함 · 시트 반영 확인 중</small>' : ''}</td>
     <td style="min-width:200px">${esc(x.product)}<small>${esc(x.cat)}</small></td>
     <td class="nw">${esc(x.type)}</td>
     <td style="min-width:140px">${esc(x.platform || x.channel)}${x.wish ? `<small>${esc(x.wish)}</small>` : ''}</td>
@@ -1513,6 +1645,45 @@ function renderInboundTable() {
 }
 
 /* ───────── ③ 광고 확정 진행건 ───────── */
+const fmtIns = (k, v) => (k === 'er' ? v + '%' : short(v));
+function insightCell(x, ext) {
+  const I = x.insight; if (!I || !I.raw) return '<span class="note">–</span>';
+  const chips = INSIGHT_KEYS.filter(([k]) => I.m[k] !== undefined).map(([k, l]) => `<span>${l} <b>${fmtIns(k, I.m[k])}</b></span>`).join('');
+  return `${chips ? `<div class="ins">${chips}</div>` : ''}${I.links.map((u, i) => ext(u, I.links.length > 1 ? '인사이트 ' + (i + 1) : '인사이트 보기')).join(' ')}${!chips && I.text ? `<small style="white-space:normal">${esc(I.text)}</small>` : ''}`;
+}
+function renderInsights() {
+  const F = D.confirmed, it = F ? F.items : [];
+  const has = it.filter(x => x.insight && x.insight.raw), num = has.filter(x => Object.keys(x.insight.m).length);
+  const today = todayIso(), posted = it.filter(x => x.upload && x.upload < today && x.postUrl);
+  if (!has.length) {
+    $('#ins-kpis').innerHTML = ''; $('#ins-table').innerHTML = '';
+    $('#ins-desc').textContent = `업로드된 광고 게시물 ${posted.length}건 · 아직 입력된 인사이트가 없어요`;
+    $('#ins-note').innerHTML = '시트 광고 확정 진행건의 <b>게시물 인사이트</b> 칸에 <b>조회수 12.3만 / 좋아요 2,100 / 댓글 85 / 저장 340 / 공유 52</b>처럼 적으면 여기에 정리돼요. 인사이트 캡처 링크(구글 드라이브 등)를 넣어도 돼요.';
+    return;
+  }
+  const sum = k => num.reduce((s, x) => s + (x.insight.m[k] || 0), 0), cnt = k => num.filter(x => x.insight.m[k] !== undefined).length;
+  const vFee = num.filter(x => x.insight.m.views && x.fee);
+  const cpv = vFee.length ? vFee.reduce((s, x) => s + x.fee, 0) / vFee.reduce((s, x) => s + x.insight.m.views, 0) : null;
+  const engaged = num.filter(x => x.insight.m.views && (x.insight.m.likes !== undefined || x.insight.m.comments !== undefined));
+  const er = engaged.length ? engaged.reduce((s, x) => s + ((x.insight.m.likes || 0) + (x.insight.m.comments || 0) + (x.insight.m.saves || 0) + (x.insight.m.shares || 0)) / x.insight.m.views, 0) / engaged.length * 100 : null;
+  $('#ins-desc').textContent = `인사이트 입력 ${has.length}건 / 업로드된 광고 게시물 ${posted.length}건`;
+  $('#ins-kpis').innerHTML =
+    kpi('총 조회수', cnt('views') ? short(sum('views')) : '–', cnt('views') ? `${cnt('views')}건 · 평균 ${short(sum('views') / cnt('views'))}` : '조회수가 적힌 건이 없어요', true) +
+    kpi('총 좋아요', cnt('likes') ? short(sum('likes')) : '–', cnt('likes') ? `${cnt('likes')}건 · 댓글 ${short(sum('comments'))} · 저장 ${short(sum('saves'))}` : '') +
+    kpi('평균 반응률', er !== null ? er.toFixed(2) + '%' : '–', '(좋아요+댓글+저장+공유) ÷ 조회수') +
+    (SHOW_FEES ? kpi('조회 1회당 단가', cpv !== null ? '₩' + (cpv < 10 ? cpv.toFixed(1) : Math.round(cpv).toLocaleString('ko-KR')) : '–', cpv !== null ? `단가·조회수가 모두 있는 ${vFee.length}건 기준` : '단가와 조회수가 모두 필요해요') : '');
+  const ks = INSIGHT_KEYS.filter(([k]) => cnt(k));
+  const rows = [...has].sort((a, b) => (b.insight.m.views || 0) - (a.insight.m.views || 0));
+  const ext = (u, t) => `<a href="${esc(u)}" target="_blank" rel="noopener">${t} ↗</a>`;
+  $('#ins-table').innerHTML = `<thead><tr><th>브랜드</th><th>업로드</th>${ks.map(([, l]) => `<th class="n">${l}</th>`).join('')}${SHOW_FEES && cnt('views') ? '<th class="n">조회당 단가</th>' : ''}<th>링크</th></tr></thead><tbody>${rows.map(x => `<tr>
+    <td><b>${esc(x.brand)}</b><small>${esc(x.platform)}</small></td><td class="nw">${x.upload ? mdw(x.upload) : '–'}</td>
+    ${ks.map(([k]) => `<td class="n">${x.insight.m[k] !== undefined ? fmtIns(k, x.insight.m[k]) : '–'}</td>`).join('')}
+    ${SHOW_FEES && cnt('views') ? `<td class="n">${x.fee && x.insight.m.views ? '₩' + Math.round(x.fee / x.insight.m.views).toLocaleString('ko-KR') : '–'}</td>` : ''}
+    <td class="nw">${[x.postUrl && ext(x.postUrl, '게시물'), ...x.insight.links.map((u, i) => ext(u, '인사이트' + (x.insight.links.length > 1 ? ' ' + (i + 1) : '')))].filter(Boolean).join(' · ') || '–'}${!Object.keys(x.insight.m).length && x.insight.text ? `<small style="white-space:normal">${esc(x.insight.text)}</small>` : ''}</td></tr>`).join('')}</tbody>`;
+  const missing = posted.filter(x => !(x.insight && x.insight.raw));
+  $('#ins-note').textContent = missing.length ? `인사이트가 아직 없는 업로드 완료 게시물 ${missing.length}건: ${missing.slice(0, 8).map(x => x.brand).join(', ')}${missing.length > 8 ? ' 외' : ''}` : '';
+}
+
 function renderConfirmed() {
   const F = D.confirmed; if (!F) { $('#cf-kpis').innerHTML = ''; $('#chk-confirmed').innerHTML = ERR.confirmed ? li({ st: 'ng', t: ERR.confirmed }) : ''; return; }
   const it = F.items, today = todayIso();
@@ -1539,14 +1710,15 @@ function renderConfirmed() {
   const sorted = [...it].sort((a, b) => (a.upload || '9999').localeCompare(b.upload || '9999'));
   const until = (end, label) => !end ? '' : end < today ? `<small>${label} ${md(end)} 종료</small>` : `<small><span class="pill ${(toD(end) - toD(today)) / 864e5 <= 30 ? 'p-wip' : 'p-none'}">${label} ~${end.slice(2).replace(/-/g, '.')}</span></small>`;
   const ext = (u, t) => `<a href="${esc(u)}" target="_blank" rel="noopener">${t} ↗</a>`;
-  $('#cf-table').innerHTML = `<thead><tr><th>업로드일</th><th>브랜드</th><th>제품</th><th>요청 플랫폼</th><th>게시물</th><th>유지기간 · 2차 활용</th>${SHOW_FEES ? '<th class="n">단가(VAT 제외)</th>' : ''}${SHOW_CONTRACTS ? '<th>계약서</th>' : ''}${SHOW_CONTACTS ? '<th>담당자</th>' : ''}</tr></thead><tbody>${sorted.map(x => `<tr>
+  $('#cf-table').innerHTML = `<thead><tr><th>업로드일</th><th>브랜드</th><th>제품</th><th>요청 플랫폼</th><th>게시물</th><th>유지기간 · 2차 활용</th>${SHOW_FEES ? '<th class="n">단가(VAT 제외)</th>' : ''}${SHOW_CONTRACTS ? '<th>계약서</th>' : ''}<th>인사이트</th>${SHOW_CONTACTS ? '<th>담당자</th>' : ''}</tr></thead><tbody>${sorted.map(x => `<tr>
     <td class="nw">${x.upload ? mdw(x.upload) + `<small>${x.upload.slice(0, 4)}${x.upload >= today ? ' · 예정' : ' · 완료'}</small>` : `<span class="pill p-none">미정</span>${x.rawUpload ? `<small>시트: ${esc(x.rawUpload)}</small>` : ''}`}</td>
     <td><b>${esc(x.brand)}</b>${x.agency ? `<small>${esc(x.agency)}</small>` : ''}${x.cat ? `<small>${esc(x.cat)}</small>` : ''}</td>
     <td style="min-width:200px">${esc(x.product)}</td><td style="min-width:110px">${esc(x.platform)}</td>
     <td class="nw">${x.postUrl ? ext(x.postUrl, '게시물 보기') : '<span class="note">–</span>'}</td>
     <td class="nw">${x.keep || x.second ? `${esc(x.keep || '–')}${x.second ? ` · 2차 ${esc(x.second)}` : ''}${until(x.keepUntil, '유지')}${until(x.secondUntil, '2차')}` : '<span class="note">–</span>'}</td>
-    ${SHOW_FEES ? `<td class="n">${x.fee !== null ? won(x.fee) : '–'}</td>` : ''}${SHOW_CONTRACTS ? `<td class="nw">${x.contract ? ext(x.contract, '계약서') : '<span class="note">–</span>'}</td>` : ''}${SHOW_CONTACTS ? `<td>${esc(x.contact)}</td>` : ''}</tr>`).join('')}</tbody>
-    ${SHOW_FEES ? `<tfoot><tr><td colspan="6">합계 ${it.length}건</td><td class="n">${won(total)}</td>${SHOW_CONTRACTS ? '<td></td>' : ''}${SHOW_CONTACTS ? '<td></td>' : ''}</tr></tfoot>` : ''}`;
+    ${SHOW_FEES ? `<td class="n">${x.fee !== null ? won(x.fee) : '–'}</td>` : ''}${SHOW_CONTRACTS ? `<td class="nw">${x.contract ? ext(x.contract, '계약서') : '<span class="note">–</span>'}</td>` : ''}<td style="min-width:150px">${insightCell(x, ext)}</td>${SHOW_CONTACTS ? `<td>${esc(x.contact)}</td>` : ''}</tr>`).join('')}</tbody>
+    ${SHOW_FEES ? `<tfoot><tr><td colspan="6">합계 ${it.length}건</td><td class="n">${won(total)}</td>${SHOW_CONTRACTS ? '<td></td>' : ''}<td></td>${SHOW_CONTACTS ? '<td></td>' : ''}</tr></tfoot>` : ''}`;
+  renderInsights();
   const rules = F.rules || (D.inbound && D.inbound.rules);
   $('#cf-rules').hidden = !rules; if (rules) $('#cf-rules').innerHTML = `<b>진행 불가 기준</b>${esc(rules.replace('[진행불가 항목]', '').trim())}`;
   $('#chk-confirmed').innerHTML = F.checks.map(li).join('');
