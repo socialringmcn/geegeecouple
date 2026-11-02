@@ -117,6 +117,27 @@ details.notice[open] summary{margin-bottom:8px}
 .people span{font-size:12.5px;background:var(--sunk);border-radius:999px;padding:2px 9px}
 .people span.side{background:none;color:var(--muted);font-weight:700;padding-left:0}
 @media (max-width:560px){.mt-row{grid-template-columns:minmax(0,1fr) auto}.mt-row .people{grid-column:1 / -1;grid-row:2}}
+.badge{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;margin-left:6px;border-radius:999px;background:var(--bad);color:#fff;font-size:11px;font-weight:800;vertical-align:1px}
+.pend-panel{border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}
+.dec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
+.dec{border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:6px;min-width:0;background:var(--surface)}
+.dec .top{display:flex;justify-content:space-between;gap:8px;align-items:flex-start}
+.dec .top b{font-size:15.5px}
+.dec .top small{display:block;color:var(--muted);font-size:12px}
+.dec .prod{font-size:14px;overflow-wrap:anywhere}
+.dec .facts{display:flex;flex-wrap:wrap;gap:4px}
+.dec .facts span{font-size:12px;background:var(--sunk);border-radius:999px;padding:2px 8px;color:var(--muted)}
+.dec .comm{font-size:12.5px;color:var(--muted);overflow-wrap:anywhere}
+.dec input[type="text"]{font:inherit;font-size:13px;color:var(--fg);background:var(--sunk);border:1px solid var(--line);border-radius:10px;padding:6px 10px;width:100%}
+.dec-btns{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.dec-btns button{font:inherit;font-size:13px;font-weight:700;border-radius:10px;padding:8px 4px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--fg)}
+.dec-btns .y{background:var(--good-bg);color:var(--good);border-color:transparent}
+.dec-btns .n{background:var(--bad-bg);color:var(--bad);border-color:transparent}
+.dec-btns button:disabled{opacity:.5;cursor:wait}
+.dec-btns button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.age{font-size:11.5px;font-weight:800;padding:2px 7px;border-radius:999px;background:var(--sunk);color:var(--muted);white-space:nowrap}
+.age.old{background:var(--warn-bg);color:var(--warn)}
+.chan-sel{font:inherit;font-size:12px;padding:2px 6px;border-radius:8px;margin-top:4px}
 .notices{list-style:none;margin:0 0 6px;padding:0;display:flex;flex-direction:column;gap:6px}
 .notices li{background:var(--warn-bg);border-radius:10px;padding:10px 12px;font-size:14px;white-space:pre-line;overflow-wrap:anywhere}
 .notices li small{display:block;color:var(--warn);font-weight:700;font-size:12px}
@@ -305,7 +326,7 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
     </div>
     <nav class="tabs" role="tablist" aria-label="카테고리">
       <button role="tab" id="tab-schedule" data-view="schedule" aria-selected="true">통합 스케줄</button>
-      <button role="tab" id="tab-inbound" data-view="inbound" aria-selected="false">광고 인입 현황</button>
+      <button role="tab" id="tab-inbound" data-view="inbound" aria-selected="false">광고 인입 현황<span class="badge" id="in-badge" hidden></span></button>
       <button role="tab" id="tab-confirmed" data-view="confirmed" aria-selected="false">광고 확정 진행건</button>
       <button role="tab" id="tab-ideas" data-view="ideas" aria-selected="false">아이템 리스트</button>
       <button role="tab" id="tab-stats" data-view="stats" aria-selected="false">인게이지먼트·조회수</button>
@@ -381,6 +402,11 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
     <div class="view-head"><div><h2>광고 인입 현황</h2><p>들어온 광고·협찬 문의와 진행 상태</p></div></div>
     <div class="errbox" id="err-inbound" hidden></div>
     <div class="kpis" id="in-kpis"></div>
+    <section class="panel wide pend-panel" id="pend-panel">
+      <div class="phead"><div><h3 id="pend-title">채널 확인 대기</h3><p id="pend-desc">진행 여부를 골라 주세요. 누르면 시트 맨 첫 열에 바로 기록되고, 메모장에도 남아요.</p></div>
+        <span class="memo-msg" id="dec-msg" role="status"></span></div>
+      <div class="dec-grid" id="pend-list"></div>
+    </section>
     <div class="grid">
       <section class="panel wide">
         <div class="phead"><div><h3>월별 문의 수</h3><p>문의일 기준 · 진행 상태별</p></div></div>
@@ -399,6 +425,7 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
         <div class="phead"><div><h3>문의 목록</h3><p id="in-count"></p></div></div>
         <div class="tools">
           <input type="search" id="in-q" placeholder="브랜드, 제품, 대행사 검색" aria-label="문의 검색">
+          <select id="in-chan" aria-label="채널 의사"><option value="">채널 의사 전체</option><option value="pending">확인 대기</option><option value="y">진행 희망 (Y)</option><option value="n">진행 안 함 (N)</option><option value="hold">보류</option></select>
           <select id="in-status" aria-label="진행 상태"><option value="">전체 상태</option><option value="yes">확정</option><option value="wip">진행 중</option><option value="no">거절·불발</option><option value="none">미기재</option></select>
           <select id="in-type" aria-label="유형"><option value="">전체 유형</option></select>
           <select id="in-month" aria-label="문의 월"><option value="">전체 기간</option></select>
@@ -541,13 +568,16 @@ const CHANNELS = [
   { name: 'TikTok',    url: 'https://www.tiktok.com/@geegeecouple',     color: '--tk' },
 ];
 // 메모장 연결 주소: 구글 시트 Apps Script를 '웹 앱'으로 배포하면 나오는 주소(…/exec)를 따옴표 사이에 붙여넣으세요.
-const MEMO_API_URL = '';
+const MEMO_API_URL = 'https://script.google.com/macros/s/AKfycbwRfV9bNy5pi3u40sfLnATgfx3du-L3zYEPpFbfquU0SspTXgiaw8iMbvkZ7k3AbiVx/exec';
 // 공지 팝업: 구글 시트 '공지' 탭의 gid 숫자 (탭을 열었을 때 주소 끝 #gid=숫자). 비우면 공지 팝업을 쓰지 않아요.
 const NOTICE_GID = '';
 const CHECK_DAYS = 28;              // '체크해주실 내용'에 보여줄 기간(일)
 const SCHEDULE_START_YEAR = 2026;   // 스케줄 시트 첫 달(예: 10월 스케줄)의 연도
 const STATS_YEAR = 2026;            // 인게이지먼트 시트의 연도
 const SHOW_FEES = true;             // 광고 단가 표시 (false로 바꾸면 숨김)
+// 광고 인입 현황 시트에서 맨 첫 열(A열)에 채널 의사(y/n)를 적기 시작한 행.
+// 이 행부터 A열이 비어 있으면 '채널 확인 대기'로 표시해요.
+const CHANNEL_CHECK_FROM_ROW = 450;
 const SHOW_CONTRACTS = true;        // 광고 확정건의 계약서 링크 표시 (false로 바꾸면 숨김)
 const SHOW_CONTACTS = false;        // 브랜드 담당자 이메일·연락처 표시 (외부 공개 페이지라 기본은 숨김)
 const AUTO_REFRESH_MINUTES = 5;
@@ -751,17 +781,20 @@ function parseInbound(rows) {
     cat: col(M, '카테고리'), product: col(M, '제품명'), status: col(M, '진행확정'), channel: col(M, '업로드 채널'), platform: col(M, '요청플랫폼'),
     wish: col(M, '희망 일정'), note: M['비고'] ?? -1, comm: col(M, '소통 현황'), owner: M['담당자'] ?? col(M, '담당자'), rule: col(M, '준수사항'),
     settle: col(M, '정산'), fee: col(M, '단가'), contact: col(M, '담당자명'), note2: M['비고2'] ?? -1 };
+  // 채널 의사(y/n): 제목이 '채널'인 열, 없으면 맨 첫 열(A열)
+  C.chan = g[hi].findIndex(h => /^(채널|채널 ?의사|채널 ?확인|채널 ?희망)$/.test(clean(h))); if (C.chan < 0 && !clean(g[hi][0])) C.chan = 0;
   const v = (r, k) => (C[k] >= 0 ? r[C[k]] : '');
   const items = [];
   for (let i = hi + 1; i < g.length; i++) {
     const r = g[i];
     if (!v(r, 'date') && !v(r, 'brand') && !v(r, 'product')) continue;
     const date = parseDate(v(r, 'date'));
+    if (!v(r, 'date') && clean(v(r, 'brand')).length > 40 && !v(r, 'product')) { (C.noteRows ||= []).push(i + 1); continue; }   // 문의가 아닌 메모 줄
     items.push({ row: i + 1, done: /^true$/i.test(v(r, 'done')), type: clean(v(r, 'type')) || '미기재', rawDate: v(r, 'date'), date,
       brand: v(r, 'brand'), agency: v(r, 'agency'), cat: v(r, 'cat'), product: v(r, 'product'), statusRaw: v(r, 'status'),
       status: classifyStatus(v(r, 'status'), v(r, 'comm')), channel: v(r, 'channel'), platform: v(r, 'platform'), wish: v(r, 'wish'),
       note: [v(r, 'note'), v(r, 'note2')].filter(Boolean).join(' / '), comm: v(r, 'comm'), owner: v(r, 'owner'), settle: v(r, 'settle'),
-      fee: v(r, 'fee'), contact: v(r, 'contact') });
+      fee: v(r, 'fee'), contact: v(r, 'contact'), chanRaw: clean(v(r, 'chan')) });
   }
   const checks = [{ st: 'ok', t: `문의 ${items.length}건을 읽었어요 (빈 줄은 건너뜀)` }];
   const noDate = items.filter(x => !x.date);
@@ -772,7 +805,21 @@ function parseInbound(rows) {
   const cnt = k => items.filter(x => x.status === k).length;
   checks.push({ st: 'info', t: `진행확정 여부 칸을 4가지로 분류했어요: 확정 ${cnt('yes')} · 진행 중 ${cnt('wip')} · 거절·불발 ${cnt('no')} · 미기재 ${cnt('none')}`,
     s: 'y/ok/픽스/확정/전달완료 → 확정, n/no/불발/거절/불가/마감 → 거절·불발, 1차 회신·리마인드 등 → 진행 중. 칸이 비면 소통 현황을 참고합니다.' });
+  if (C.noteRows) checks.push({ st: 'info', t: `문의가 아니라 메모로 보이는 ${C.noteRows.length}줄은 목록에서 뺐어요 (${C.noteRows.join(', ')}행)` });
+  const from = items.filter(x => x.row >= CHANNEL_CHECK_FROM_ROW), ck = k => from.filter(x => chanKey(x.chanRaw, x.row) === k).length;
+  if (C.chan >= 0) checks.push({ st: 'info', t: `${CHANNEL_CHECK_FROM_ROW}행 이후 ${from.length}건의 채널 의사(A열): 진행 희망 ${ck('y')} · 진행 안 함 ${ck('n')} · 보류 ${ck('hold')} · 확인 대기 ${ck('pending')}${ck('other') ? ` · 기타 ${ck('other')}` : ''}`,
+    s: ck('other') ? '기타: ' + [...new Set(from.filter(x => chanKey(x.chanRaw, x.row) === 'other').map(x => x.chanRaw))].join(', ') : '' });
+  else checks.push({ st: 'ng', t: '채널 의사(y/n) 열을 찾지 못했어요. 맨 첫 열에 y/n를 적고 있는지 확인해 주세요.' });
   return { items, rules: findRules(g), checks };
+}
+// 채널 의사 분류: y 진행 희망 · n 진행 안 함 · 보류 · (빈칸) 확인 대기
+function chanKey(raw, row) {
+  const t = clean(raw).toLowerCase();
+  if (/^(y|yes|o|ㅇ|예)$/.test(t)) return 'y';
+  if (/^(n|no|x|아니오)$/.test(t)) return 'n';
+  if (/보류|대기|hold/.test(t)) return 'hold';
+  if (!t) return row >= CHANNEL_CHECK_FROM_ROW ? 'pending' : 'none';
+  return 'other';
 }
 
 /* ── 광고 확정 진행건 ── */
@@ -950,7 +997,7 @@ function setStatus() {
 async function loadAll() {
   $('#status').className = 'status load'; $('#status-text').textContent = '불러오는 중…';
   await Promise.all(VIEWS.map(k => SHEETS[k] ? fetchCsv(SHEETS[k]).then(t => apply(k, toRows(t), '구글 시트')).catch(e => { ERR[k] = e.message; }) : null));
-  setStatus(); renderView(); loadMemos(); loadNotices();
+  setStatus(); renderView(); updateBadge(); loadMemos(); loadNotices();
 }
 
 /* ── 공지 (시트 '공지' 탭) ── */
@@ -1018,7 +1065,10 @@ async function memoCall(method, body) {
 }
 async function loadMemos() {
   if (!memoReady()) { renderMemos(); return; }
-  try { const j = await memoCall('GET'); MEMO = j; MEMO_ERR = null; }
+  try {
+    const j = await memoCall('GET'); MEMO = j; MEMO_ERR = null;
+    if (j.decisions) { const before = JSON.stringify(LIVE_DEC); setDecisions(j.decisions); if (JSON.stringify(LIVE_DEC) !== before && (view === 'inbound' || view === 'schedule')) renderView(); updateBadge(); }
+  }
   catch (e) { MEMO_ERR = e.message; }
   renderMemos();
 }
@@ -1064,7 +1114,7 @@ function renderMemos() {
 }
 async function memoAction(body, okText) {
   const msg = $('#memo-msg');
-  try { const j = await memoCall('POST', body); MEMO = { memos: j.memos }; MEMO_ERR = null; if (okText) { msg.className = 'memo-msg ok'; msg.textContent = okText; } renderMemos(); return true; }
+  try { const j = await memoCall('POST', body); MEMO = { memos: j.memos }; MEMO_ERR = null; if (j.decisions) setDecisions(j.decisions); if (okText) { msg.className = 'memo-msg ok'; msg.textContent = okText; } renderMemos(); return true; }
   catch (err) { msg.className = 'memo-msg bad'; msg.textContent = `저장하지 못했어요. ${err.message} 잠시 후 다시 시도해 주세요.`; return false; }
 }
 $('#memo-form').addEventListener('submit', async e => {
@@ -1157,10 +1207,14 @@ function renderSchedule() {
   };
   $('#check-title').textContent = `${CREATOR}님 체크해 주실 내용`;
   $('#check-desc').textContent = `${mdw(today)} ~ ${mdw(cEnd)} · 스케줄 시트 기준`;
-  $('#sch-check').innerHTML = S
+  const pend = pendingItems();
+  const adGroup = D.inbound ? `<div class="check-group"><h4><i class="sw" style="background:var(--warn)"></i>광고 진행 여부 확인 <span class="note">${pend.length}건</span></h4>
+      <ul class="upcoming">${pend.length ? pend.slice(0, 5).map(x => `<li><span class="when">${x.date ? md(x.date) : ''}<small>문의</small></span><span class="what"><span><b>${esc(x.brand)}</b> · ${esc(x.product)}</span></span></li>`).join('') +
+        `<li style="display:block"><button type="button" class="btn" data-goto="inbound">${pend.length > 5 ? `외 ${pend.length - 5}건 · ` : ''}광고 인입 현황에서 체크하기 →</button></li>` : '<li class="empty">확인할 광고 문의가 없어요.</li>'}</ul></div>` : '';
+  $('#sch-check').innerHTML = adGroup + (S
     ? group('tocompany', `소셜링에 보내주실 자료 (${CREATOR} → 소셜링)`, '이 기간에 보내주실 자료가 없어요.') +
       group('tocreator', `확인해 주실 자료 (소셜링 → ${CREATOR})`, '이 기간에 확인하실 자료가 없어요.')
-    : '<p class="empty">스케줄 시트를 불러오지 못했어요.</p>';
+    : '<p class="empty">스케줄 시트를 불러오지 못했어요.</p>');
 
   // 달력
   if (!calCursor) {
@@ -1203,12 +1257,13 @@ function renderInbound() {
   const ym = todayIso().slice(0, 7), thisM = it.filter(x => x.date && x.date.startsWith(ym)).length;
   const prevYm = (() => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return iso(d).slice(0, 7); })();
   const prevM = it.filter(x => x.date && x.date.startsWith(prevYm)).length;
-  const decided = cnt('yes') + cnt('no');
+  const cc = k => it.filter(x => chanOf(x).k === k).length;
   $('#in-kpis').innerHTML =
-    kpi('전체 문의', `${num(it.length)}건`, `${it.filter(x => x.date && x.date >= '2024-01-01').map(x => x.date).sort()[0]?.slice(0, 7).replace('-', '.') || ''} 부터`, true) +
-    kpi('이번 달 문의', `${thisM}건`, `지난달 ${prevM}건`) +
-    kpi('확정', `${cnt('yes')}건`, decided ? `확정·거절 중 확정 ${Math.round(cnt('yes') / decided * 100)}%` : '') +
-    kpi('진행 중', `${cnt('wip')}건`, `거절·불발 ${cnt('no')} · 미기재 ${cnt('none')}`);
+    kpi('채널 확인 대기', `${cc('pending')}건`, cc('pending') ? '아래에서 진행 여부를 골라 주세요' : '모두 확인했어요', true) +
+    kpi('전체 문의', `${num(it.length)}건`, `이번 달 ${thisM}건 · 지난달 ${prevM}건`) +
+    kpi('채널 진행 희망 (Y)', `${cc('y')}건`, `진행 안 함 ${cc('n')} · 보류 ${cc('hold')} · ${CHANNEL_CHECK_FROM_ROW}행 이후`) +
+    kpi('광고 확정', `${cnt('yes')}건`, `진행 중 ${cnt('wip')} · 거절·불발 ${cnt('no')}`);
+  renderPending();
 
   // 월별
   const months = [...new Set(it.filter(x => x.date && x.date >= '2025-01-01').map(x => x.date.slice(0, 7)))].sort();
@@ -1237,16 +1292,76 @@ function renderInbound() {
   renderInboundTable();
   $('#chk-inbound').innerHTML = I.checks.map(li).join('');
 }
+// 채널 의사: 시트 CSV 값 위에 메모장 스크립트의 실시간 값(바로 반영)을 덮어씀
+let LIVE_DEC = {};
+function chanOf(x) {
+  const live = LIVE_DEC[x.row];
+  const raw = live && live.brand === clean(x.brand) ? live.v : x.chanRaw;
+  const k = chanKey(raw, x.row);
+  return { k, raw, label: { y: '진행 희망 (Y)', n: '진행 안 함 (N)', hold: '보류', pending: '확인 대기', none: '–', other: raw }[k] };
+}
+const CHAN_CLASS = { y: 'p-yes', n: 'p-no', hold: 'p-none', pending: 'p-wip', other: 'p-none' };
+const chanPill = x => { const c = chanOf(x); return c.k === 'none' ? '<span class="note">–</span>' : `<span class="pill ${CHAN_CLASS[c.k]}">${esc(c.label)}</span>`; };
+const decideReady = () => typeof memoReady === 'function' && memoReady();
+function pendingItems() { return D.inbound ? D.inbound.items.filter(x => chanOf(x).k === 'pending').sort((a, b) => (b.date || '').localeCompare(a.date || '')) : []; }
+function updateBadge() { const n = pendingItems().length, b = $('#in-badge'); b.hidden = !n; b.textContent = n; }
+function renderPending() {
+  const list = pendingItems(), today = todayIso(), ready = decideReady();
+  $('#pend-title').textContent = `채널 확인 대기 ${list.length}건`;
+  $('#pend-desc').textContent = ready ? '진행 여부를 골라 주세요. 누르면 시트 맨 첫 열(A열)에 바로 기록되고, 메모장에도 남아요.'
+    : '시트 맨 첫 열(A열)에 y / n이 없는 문의예요. 메모장 스크립트를 연결하면 여기서 바로 체크할 수 있어요. (지금은 시트에 직접 입력)';
+  $('#pend-panel').hidden = false;
+  $('#pend-list').innerHTML = list.length ? list.map(x => {
+    const days = x.date ? Math.round((toD(today) - toD(x.date)) / 864e5) : null;
+    return `<article class="dec" data-row="${x.row}">
+      <div class="top"><div><b>${esc(x.brand) || '(브랜드 미기재)'}</b><small>${x.agency && x.agency !== '-' ? esc(x.agency) + ' · ' : ''}${x.date ? x.date.slice(2).replace(/-/g, '.') + ' 문의' : esc(x.rawDate)}</small></div>
+        ${days !== null ? `<span class="age${days >= 7 ? ' old' : ''}">${days === 0 ? '오늘' : days + '일째'}</span>` : ''}</div>
+      <div class="prod">${esc(x.product)}</div>
+      <div class="facts">${[x.cat, x.type, x.platform || x.channel, x.wish && '희망 ' + x.wish, SHOW_FEES && x.fee].filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('')}</div>
+      ${x.comm || x.note ? `<div class="comm">${esc([x.comm, x.note].filter(Boolean).join(' · '))}</div>` : ''}
+      ${ready ? `<input type="text" maxlength="200" placeholder="의견 (선택) 예: 일정만 맞으면 좋아요" aria-label="${esc(x.brand)} 의견">
+      <div class="dec-btns"><button type="button" class="y" data-v="y">진행 희망</button><button type="button" class="n" data-v="n">진행 안 함</button><button type="button" data-v="hold">보류</button></div>` : ''}
+    </article>`; }).join('') : '<p class="empty">채널 확인이 필요한 문의가 없어요. 👍</p>';
+  updateBadge();
+}
+async function decide(row, value, comment, btns) {
+  const x = D.inbound && D.inbound.items.find(i => i.row === row), msg = $('#dec-msg');
+  if (!x) return;
+  btns.forEach(b => (b.disabled = true));
+  msg.className = 'memo-msg'; msg.textContent = '저장 중…';
+  try {
+    const j = await memoCall('POST', { action: 'decide', row, brand: clean(x.brand), value, comment, role: ROLE, by: ROLE_NAME(ROLE) });
+    if (j.decisions) setDecisions(j.decisions);
+    MEMO = { ...(MEMO || {}), memos: j.memos }; renderMemos();
+    msg.className = 'memo-msg ok'; msg.textContent = `${x.brand}: ${{ y: '진행 희망', n: '진행 안 함', hold: '보류', clear: '선택 취소' }[value]}(으)로 저장했어요.`;
+    renderView(); updateBadge();
+  } catch (e) {
+    msg.className = 'memo-msg bad';
+    msg.textContent = e.message.includes('처리하지') ? `${x.brand} 행을 시트에서 찾지 못했어요. 시트에서 행이 옮겨졌다면 새로고침 후 다시 눌러 주세요.` : `저장하지 못했어요. ${e.message}`;
+    btns.forEach(b => (b.disabled = false));
+  }
+}
+function setDecisions(list) { LIVE_DEC = {}; (list || []).forEach(d => (LIVE_DEC[d.row] = { brand: clean(d.brand), v: d.v })); }
+$('#pend-list').addEventListener('click', e => {
+  const b = e.target.closest('[data-v]'); if (!b) return;
+  const card = b.closest('.dec'); decide(+card.dataset.row, b.dataset.v, (card.querySelector('input') || {}).value || '', [...card.querySelectorAll('button')]);
+});
+$('#in-table').addEventListener('change', e => {
+  const sel = e.target.closest('.chan-sel'); if (!sel || !sel.value) return;
+  decide(+sel.dataset.row, sel.value, '', [sel]);
+});
+
 function renderInboundTable() {
   const I = D.inbound; if (!I) return;
-  const q = $('#in-q').value.trim().toLowerCase(), st = $('#in-status').value, tp = $('#in-type').value, mo = $('#in-month').value;
-  const rows = I.items.filter(x => (!st || x.status === st) && (!tp || x.type.includes(tp)) && (!mo || (x.date || '').startsWith(mo)) &&
+  const q = $('#in-q').value.trim().toLowerCase(), st = $('#in-status').value, tp = $('#in-type').value, mo = $('#in-month').value, ch = $('#in-chan').value;
+  const rows = I.items.filter(x => (!ch || chanOf(x).k === ch) && (!st || x.status === st) && (!tp || x.type.includes(tp)) && (!mo || (x.date || '').startsWith(mo)) &&
     (!q || [x.brand, x.agency, x.product, x.cat, x.comm, x.note].join(' ').toLowerCase().includes(q)))
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   $('#in-count').textContent = `${rows.length}건 · 최근 문의 순`;
   const shown = rows.slice(0, inLimit);
-  $('#in-table').innerHTML = `<thead><tr><th>문의일</th><th>상태</th><th>브랜드</th><th>제품 · 카테고리</th><th>유형</th><th>요청 플랫폼 · 희망 일정</th><th>소통 현황</th><th>담당</th>${SHOW_FEES ? '<th class="n">단가</th>' : ''}${SHOW_CONTACTS ? '<th>연락처</th>' : ''}</tr></thead><tbody>${shown.map(x => `<tr>
+  $('#in-table').innerHTML = `<thead><tr><th>문의일</th><th>채널 의사</th><th>진행 상태</th><th>브랜드</th><th>제품 · 카테고리</th><th>유형</th><th>요청 플랫폼 · 희망 일정</th><th>소통 현황</th><th>담당</th>${SHOW_FEES ? '<th class="n">단가</th>' : ''}${SHOW_CONTACTS ? '<th>연락처</th>' : ''}</tr></thead><tbody>${shown.map(x => `<tr>
     <td class="nw">${x.date ? x.date.slice(2).replace(/-/g, '.') : esc(x.rawDate)}</td>
+    <td class="nw">${chanPill(x)}${decideReady() && x.row >= CHANNEL_CHECK_FROM_ROW ? `<br><select class="chan-sel" data-row="${x.row}" aria-label="${esc(x.brand)} 채널 의사 변경">${[['', '바꾸기…'], ['y', '진행 희망 (Y)'], ['n', '진행 안 함 (N)'], ['hold', '보류'], ['clear', '선택 취소']].map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>` : ''}</td>
     <td class="nw"><span class="pill p-${x.status}">${STATUS[x.status]}</span>${x.statusRaw && x.statusRaw.toLowerCase() !== 'y' && x.statusRaw.toLowerCase() !== 'n' ? `<small>${esc(x.statusRaw)}</small>` : ''}${x.done ? '<small>프로젝트 완료</small>' : ''}</td>
     <td><b>${esc(x.brand) || '–'}</b>${x.agency && x.agency !== '-' ? `<small>${esc(x.agency)}</small>` : ''}</td>
     <td style="min-width:200px">${esc(x.product)}<small>${esc(x.cat)}</small></td>
@@ -1414,10 +1529,11 @@ function renderStats() {
 document.querySelectorAll('.tabs [data-view]').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
 window.addEventListener('hashchange', () => showView(location.hash.slice(1), false));
 $('#refresh').addEventListener('click', loadAll);
+$('#sch-check').addEventListener('click', e => { if (e.target.closest('[data-goto]')) showView(e.target.closest('[data-goto]').dataset.goto); });
 $('#cal-prev').addEventListener('click', () => moveMonth(-1));
 $('#cal-next').addEventListener('click', () => moveMonth(1));
 $('#cal-today').addEventListener('click', () => { const t = new Date(); calCursor = { y: t.getFullYear(), m: t.getMonth() + 1 }; renderSchedule(); });
-['#in-q', '#in-status', '#in-type', '#in-month'].forEach(s => $(s).addEventListener('input', () => { inLimit = 50; renderInboundTable(); }));
+['#in-q', '#in-chan', '#in-status', '#in-type', '#in-month'].forEach(s => $(s).addEventListener('input', () => { inLimit = 50; renderInboundTable(); }));
 $('#in-more').addEventListener('click', () => { inLimit += 100; renderInboundTable(); });
 $('#id-q').addEventListener('input', renderIdeas);
 $('#st-fmt').addEventListener('change', renderStats);
@@ -1490,27 +1606,6 @@ try { saved = JSON.parse(sessionStorage.getItem('dash-unlocked') || 'null'); } c
 // 파일이 새로 바뀌었으면(암호화 내용 변경) 다시 비밀번호를 묻습니다
 if (saved && saved.sheets && saved.ver === LOCKED_SHEETS.iv) enter(saved); else { try { sessionStorage.removeItem('dash-unlocked'); } catch (_) {} $('#gate-pw').focus(); }
 }
-</script>
-  <script>
-(function () {
-  var m = location.hash.match(/[#&]auto=([^&]+)/);
-  if (!m) return;
-  var pw = decodeURIComponent(m[1]);
-  history.replaceState(null, "", location.pathname + location.search);
-  function tryUnlock(n) {
-    var input = document.querySelector('input[type="password"]');
-    if (!input) { if (n < 50) setTimeout(function () { tryUnlock(n + 1); }, 100); return; }
-    input.value = pw;
-    input.dispatchEvent(new Event("input", { bubbles: true }));
-    var btn = [].slice.call(document.querySelectorAll('button, input[type="submit"]'))
-      .filter(function (b) { return /입장/.test(b.textContent || b.value || ""); })[0];
-    if (btn) btn.click();
-    else if (input.form) { input.form.requestSubmit ? input.form.requestSubmit() : input.form.submit(); }
-    else input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
-  }
-  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", function () { tryUnlock(0); });
-  else tryUnlock(0);
-})();
 </script>
 </body>
 </html>
