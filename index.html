@@ -123,6 +123,40 @@ details.notice[open] summary{margin-bottom:8px}
 .kpi-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .kpi-btn .lbl{display:flex;justify-content:space-between;gap:6px}
 .kpi-btn .go{opacity:.6}
+.memo-aside{position:fixed;top:0;right:0;bottom:0;z-index:35;width:min(380px,100vw);display:flex;flex-direction:column;gap:10px;background:var(--surface);border-left:1px solid var(--line);box-shadow:-12px 0 32px rgba(0,0,0,.12);
+  padding:calc(14px + env(safe-area-inset-top,0px)) max(16px,env(safe-area-inset-right,0px)) calc(14px + env(safe-area-inset-bottom,0px)) 16px;transform:translateX(105%);visibility:hidden;transition:transform .22s ease,visibility .22s}
+body.memo-open .memo-aside{transform:none;visibility:visible}
+.aside-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.aside-head h3{margin:0;font-size:17px;font-weight:800}
+.aside-head .x{font:inherit;font-size:22px;line-height:1;background:none;border:0;color:var(--muted);cursor:pointer;padding:2px 8px;border-radius:8px}
+.memo-aside .board{flex:1;min-height:0;max-height:none}
+.memo-aside .msg{max-width:88%}
+.memo-aside .memo-form textarea{min-height:76px}
+.memo-toggle{position:fixed;z-index:34;right:max(16px,env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));font:inherit;font-size:14px;font-weight:800;color:var(--bg);background:var(--fg);border:0;border-radius:999px;padding:12px 18px;box-shadow:0 8px 24px rgba(0,0,0,.2);cursor:pointer;display:inline-flex;align-items:center}
+.memo-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+body.memo-open .memo-toggle{display:none}
+@media (min-width:1280px){body.memo-open{padding-right:380px} body.memo-open .memo-aside{box-shadow:none}}
+@media (prefers-reduced-motion:reduce){.memo-aside{transition:none}}
+.links{display:flex;flex-wrap:wrap;gap:4px 10px;margin-top:2px}
+.links a{font-size:12.5px;font-weight:700;text-decoration:none;white-space:nowrap}
+.links a:hover{text-decoration:underline}
+.seg{display:inline-flex;background:var(--sunk);border-radius:10px;padding:3px}
+.seg button{font:inherit;font-size:13px;border:0;background:none;color:var(--muted);padding:5px 12px;border-radius:8px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--surface);color:var(--fg);font-weight:700;box-shadow:0 1px 2px rgba(0,0,0,.08)}
+.stagebar{display:flex;height:12px;border-radius:6px;overflow:hidden;background:var(--sunk)}
+.stagebar span{display:block;height:100%}
+.stages{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:8px}
+.stage{font:inherit;text-align:left;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:12px;padding:10px 12px;cursor:pointer;display:flex;flex-direction:column;gap:2px;min-width:0}
+.stage:hover{border-color:var(--faint)}
+.stage:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.stage span{font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:6px}
+.stage b{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.stage small{font-size:11.5px;color:var(--muted)}
+@media (max-width:900px){.stages{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.waitlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:8px;margin-top:4px}
+.waitlist div{background:var(--sunk);border-radius:10px;padding:9px 12px;font-size:13px;min-width:0}
+.waitlist b{display:block;font-size:14px}
+.waitlist small{color:var(--muted)}
 .badge{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;margin-left:6px;border-radius:999px;background:var(--bad);color:#fff;font-size:11px;font-weight:800;vertical-align:1px}
 .pend-panel{border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}
 .dec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
@@ -280,7 +314,7 @@ details dd{margin:0;font-size:13.5px;white-space:pre-line;overflow-wrap:anywhere
 .gate .msg{min-height:20px;font-size:13.5px;color:var(--bad)}
 .gate button{font:inherit;font-size:15px;font-weight:700;color:var(--bg);background:var(--fg);border:0;border-radius:12px;padding:12px;cursor:pointer}
 .gate button:disabled{opacity:.6;cursor:wait}
-body.locked header,body.locked main,body.locked footer{display:none}
+body.locked header,body.locked main,body.locked footer,body.locked .memo-aside,body.locked .memo-toggle{display:none}
 footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
 [hidden]{display:none!important}
 
@@ -358,27 +392,6 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
         <div class="phead"><div><h3>다가오는 2주</h3><p id="up-desc">오늘부터 14일간의 일정</p></div></div>
         <ul class="upcoming" id="sch-upcoming"></ul>
       </section>
-      <section class="panel wide" id="memo-section">
-        <div class="phead"><div><h3>메모장</h3><p id="memo-desc">지지부부님과 소셜링이 서로 주고받는 메모 · 대시보드에서 바로 저장돼요</p></div>
-          <span class="note" id="memo-count"></span></div>
-        <div class="board" id="memo-list" aria-live="polite"></div>
-        <form class="memo-form" id="memo-form" autocomplete="off">
-          <div class="row">
-            <div class="who" role="group" aria-label="보내는 사람">
-              <span class="note">보내는 사람</span>
-              <button type="button" class="chip-btn" data-role="creator" id="role-creator" aria-pressed="true"></button>
-              <button type="button" class="chip-btn" data-role="manager" id="role-manager" aria-pressed="false">소셜링 매니저</button>
-            </div>
-            <label class="note pin-opt" id="pin-opt" hidden><input type="checkbox" id="memo-pin"> 공지로 고정</label>
-          </div>
-          <label for="memo-text" class="sr">메모 내용</label>
-          <textarea id="memo-text" maxlength="2000" placeholder="메모를 입력하세요 (Ctrl + Enter로 보내기)"></textarea>
-          <div class="row">
-            <span class="memo-msg" id="memo-msg" role="status"></span>
-            <button class="btn primary" type="submit" id="memo-save">보내기</button>
-          </div>
-        </form>
-      </section>
       <section class="panel wide">
         <div class="phead">
           <div class="cal-nav">
@@ -413,9 +426,19 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
         <span class="memo-msg" id="dec-msg" role="status"></span></div>
       <div class="dec-grid" id="pend-list"></div>
     </section>
+    <section class="panel wide" id="stage-panel">
+      <div class="phead"><div><h3>매니저 소통 현황</h3><p>진행확정 여부 칸 기준 · 단계를 누르면 아래 목록이 걸러져요</p></div>
+        <div class="seg" role="group" aria-label="범위">
+          <button type="button" data-scope="y" aria-pressed="true">채널 진행 희망 건</button>
+          <button type="button" data-scope="all" aria-pressed="false">전체 문의</button>
+        </div></div>
+      <div class="stagebar" id="stage-bar"></div>
+      <div class="stages" id="stage-chips"></div>
+      <div id="stage-wait"></div>
+    </section>
     <div class="grid">
       <section class="panel wide">
-        <div class="phead"><div><h3>월별 문의 수</h3><p>문의일 기준 · 진행 상태별</p></div></div>
+        <div class="phead"><div><h3>월별 문의 수</h3><p>문의일 기준 · 매니저 소통 단계별</p></div></div>
         <div class="chart-box"><canvas id="c-in-month" role="img" aria-label="월별 광고 문의 수"></canvas></div>
       </section>
       <section class="panel">
@@ -432,7 +455,7 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
         <div class="tools">
           <input type="search" id="in-q" placeholder="브랜드, 제품, 대행사 검색" aria-label="문의 검색">
           <select id="in-chan" aria-label="채널 의사"><option value="">채널 의사 전체</option><option value="pending">확인 대기</option><option value="y">진행 희망 (Y)</option><option value="n">진행 안 함 (N)</option><option value="hold">보류</option><option value="proposal">선제안</option></select>
-          <select id="in-status" aria-label="진행 상태"><option value="">전체 상태</option><option value="yes">확정</option><option value="wip">진행 중</option><option value="no">거절·불발</option><option value="none">미기재</option></select>
+          <select id="in-status" aria-label="소통 단계"><option value="">소통 단계 전체</option><option value="none">소통 전</option><option value="reply">1차 회신</option><option value="remind">리마인드</option><option value="etc">기타 진행</option><option value="fix">픽스</option><option value="fail">불발</option></select>
           <select id="in-type" aria-label="유형"><option value="">전체 유형</option></select>
           <select id="in-month" aria-label="문의 월"><option value="">전체 기간</option></select>
         </div>
@@ -556,6 +579,32 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
     </div>
   </section>
 </main>
+
+<!-- ───────── 메모장 (모든 탭 오른쪽 사이드) ───────── -->
+<button type="button" class="memo-toggle" id="memo-toggle" aria-controls="memo-aside" aria-expanded="false">💬 메모장<span class="badge" id="memo-unread" hidden></span></button>
+<aside class="memo-aside" id="memo-aside" aria-label="메모장">
+  <div class="aside-head">
+    <div><h3>메모장</h3><p class="note" id="memo-count">지지부부님과 소셜링이 주고받는 메모</p></div>
+    <button type="button" class="x" id="memo-close" aria-label="메모장 닫기">×</button>
+  </div>
+  <div class="board" id="memo-list" aria-live="polite"></div>
+  <form class="memo-form" id="memo-form" autocomplete="off">
+    <div class="row">
+      <div class="who" role="group" aria-label="보내는 사람">
+        <span class="note">보내는 사람</span>
+        <button type="button" class="chip-btn" data-role="creator" id="role-creator" aria-pressed="true"></button>
+        <button type="button" class="chip-btn" data-role="manager" id="role-manager" aria-pressed="false">소셜링 매니저</button>
+      </div>
+      <label class="note pin-opt" id="pin-opt" hidden><input type="checkbox" id="memo-pin"> 공지로 고정</label>
+    </div>
+    <label for="memo-text" class="sr">메모 내용</label>
+    <textarea id="memo-text" maxlength="2000" placeholder="메모를 입력하세요 (Ctrl + Enter로 보내기)"></textarea>
+    <div class="row">
+      <span class="memo-msg" id="memo-msg" role="status"></span>
+      <button class="btn primary" type="submit" id="memo-save">보내기</button>
+    </div>
+  </form>
+</aside>
 <footer class="wrap" id="footer">데이터 출처: 구글 스프레드시트 (웹에 게시 CSV)</footer>
 
 <script>
@@ -788,6 +837,7 @@ function parseInbound(rows) {
     wish: col(M, '희망 일정'), note: M['비고'] ?? -1, comm: col(M, '소통 현황'), owner: M['담당자'] ?? col(M, '담당자'), rule: col(M, '준수사항'),
     settle: col(M, '정산'), fee: col(M, '단가'), contact: col(M, '담당자명'), note2: M['비고2'] ?? -1 };
   // 채널 의사(y/n): 제목이 '채널'인 열, 없으면 맨 첫 열(A열)
+  C.link = g[hi].findIndex(h => /링크|URL|홈페이지|페이지/i.test(clean(h)) && !/담당자|연락/.test(h));
   C.chan = g[hi].findIndex(h => /^(채널|채널 ?의사|채널 ?확인|채널 ?희망)$/.test(clean(h))); if (C.chan < 0 && !clean(g[hi][0])) C.chan = 0;
   const v = (r, k) => (C[k] >= 0 ? r[C[k]] : '');
   const items = [];
@@ -800,7 +850,7 @@ function parseInbound(rows) {
       brand: v(r, 'brand'), agency: v(r, 'agency'), cat: v(r, 'cat'), product: v(r, 'product'), statusRaw: v(r, 'status'),
       status: classifyStatus(v(r, 'status'), v(r, 'comm')), channel: v(r, 'channel'), platform: v(r, 'platform'), wish: v(r, 'wish'),
       note: [v(r, 'note'), v(r, 'note2')].filter(Boolean).join(' / '), comm: v(r, 'comm'), owner: v(r, 'owner'), settle: v(r, 'settle'),
-      fee: v(r, 'fee'), contact: v(r, 'contact'), chanRaw: clean(v(r, 'chan')) });
+      fee: v(r, 'fee'), contact: v(r, 'contact'), chanRaw: clean(v(r, 'chan')), links: findLinks(v(r, 'link')), stage: stageOf(v(r, 'status')) });
   }
   const checks = [{ st: 'ok', t: `문의 ${items.length}건을 읽었어요 (빈 줄은 건너뜀)` }];
   const noDate = items.filter(x => !x.date);
@@ -808,15 +858,34 @@ function parseInbound(rows) {
     s: noDate.slice(0, 6).map(x => `${x.row}행 ${clean(x.brand || x.product || '').slice(0, 20)} "${clean(x.rawDate).slice(0, 24)}${clean(x.rawDate).length > 24 ? '…' : ''}"`).join(' · ') });
   const odd = items.filter(x => x.date && (x.date < '2024-01-01' || x.date > '2030-12-31'));
   if (odd.length) checks.push({ st: 'ng', t: `문의일 연도가 이상한 ${odd.length}건이 있어요 (오타 확인)`, s: odd.map(x => `${x.row}행 ${x.brand}: ${x.rawDate}`).join(' · ') });
-  const cnt = k => items.filter(x => x.status === k).length;
-  checks.push({ st: 'info', t: `진행확정 여부 칸을 4가지로 분류했어요: 확정 ${cnt('yes')} · 진행 중 ${cnt('wip')} · 거절·불발 ${cnt('no')} · 미기재 ${cnt('none')}`,
-    s: 'y/ok/픽스/확정/전달완료 → 확정, n/no/불발/거절/불가/마감 → 거절·불발, 1차 회신·리마인드 등 → 진행 중. 칸이 비면 소통 현황을 참고합니다.' });
+  const sc = k => items.filter(x => x.stage === k).length;
+  checks.push({ st: 'info', t: `진행확정 여부 칸을 소통 단계로 나눴어요: ${STAGES.map(([k, l]) => `${l} ${sc(k)}`).join(' · ')}`,
+    s: '불발·거절·마감 → 불발, 픽스·확정·y → 픽스, "리마인드"가 들어가면 리마인드, "회신"이 들어가면 1차 회신, 그 밖의 글 → 기타 진행, 빈 칸 → 소통 전' });
   if (C.noteRows) checks.push({ st: 'info', t: `문의가 아니라 메모로 보이는 ${C.noteRows.length}줄은 목록에서 뺐어요 (${C.noteRows.join(', ')}행)` });
   const from = items.filter(x => x.row >= CHANNEL_CHECK_FROM_ROW), ck = k => from.filter(x => chanKey(x.chanRaw, x.row, x.type) === k).length;
+  checks.push({ st: C.link >= 0 ? 'ok' : 'info', t: C.link >= 0 ? `링크 열 "${clean(g[hi][C.link])}"에서 링크 ${items.filter(x => x.links.length).length}건을 읽었어요` : '링크 열을 찾지 못했어요. 헤더에 "링크"라는 단어가 들어가게 적어 주세요.' });
   if (C.chan >= 0) checks.push({ st: 'info', t: `${CHANNEL_CHECK_FROM_ROW}행 이후 ${from.length}건의 채널 의사(A열): 진행 희망 ${ck('y')} · 진행 안 함 ${ck('n')} · 보류 ${ck('hold')} · 확인 대기 ${ck('pending')} · 선제안 ${ck('proposal')}${ck('other') ? ` · 기타 ${ck('other')}` : ''}`,
     s: ck('other') ? '기타: ' + [...new Set(from.filter(x => chanKey(x.chanRaw, x.row, x.type) === 'other').map(x => x.chanRaw))].join(', ') : '' });
   else checks.push({ st: 'ng', t: '채널 의사(y/n) 열을 찾지 못했어요. 맨 첫 열에 y/n를 적고 있는지 확인해 주세요.' });
   return { items, rules: findRules(g), checks };
+}
+// 셀 안의 링크 찾기 (https:// 없이 www.… 로 적어도 인식)
+function findLinks(text) {
+  const out = [];
+  String(text || '').replace(/https?:\/\/[^\s,<>"]+|(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*\.(?:com|co\.kr|kr|net|io|shop|store|me|ai|app|org|link|ly|page)(?:\/[^\s,<>"]*)?/gi, m => { out.push(/^https?:/i.test(m) ? m : 'https://' + m); return m; });
+  return [...new Set(out)];
+}
+// 진행확정 여부 칸 → 매니저 소통 단계
+const STAGES = [['none', '소통 전'], ['reply', '1차 회신'], ['remind', '리마인드'], ['etc', '기타 진행'], ['fix', '픽스'], ['fail', '불발']];
+const STAGE_LABEL = Object.fromEntries(STAGES);
+function stageOf(raw) {
+  const t = clean(raw), l = t.toLowerCase();
+  if (!t || t === '-') return 'none';
+  if (/불발|거절|불가|마감|만료|지남|겹쳐|미사용/.test(t) || /^(n|no)(\b|\s|\(|$)/.test(l)) return 'fail';
+  if (/^(y|ok|yes)$/.test(l) || /픽스|확정|전달\s*완료|수령\s*완료/.test(t)) return 'fix';
+  if (/리마인드/.test(t)) return 'remind';
+  if (/회신/.test(t)) return 'reply';
+  return 'etc';
 }
 // 채널 의사 분류: y 진행 희망 · n 진행 안 함 · 보류 · (빈칸) 확인 대기
 function chanKey(raw, row, type) {
@@ -1093,7 +1162,7 @@ function renderMemos() {
   $('#role-creator').textContent = CREATOR;
   if (!memoReady()) {
     form.hidden = true; $('#memo-count').textContent = ''; renderNotices();
-    list.innerHTML = '<p class="empty">메모장이 아직 연결되지 않았어요. 담당자가 구글 시트에 메모장 스크립트를 설치하고 index.html의 MEMO_API_URL에 주소를 넣으면 사용할 수 있어요.</p>';
+    list.innerHTML = '<p class="empty">메모장이 아직 연결되지 않았어요. 담당자가 구글 시트에 스크립트를 설치하고 index.html의 MEMO_API_URL에 주소를 넣으면 사용할 수 있어요.</p>'; $('#memo-unread').hidden = true;
     return;
   }
   form.hidden = false;
@@ -1101,7 +1170,8 @@ function renderMemos() {
   if (!MEMO) { list.innerHTML = '<p class="empty">메모 불러오는 중…</p>'; return; }
   const ms = MEMO.memos || [];
   const waitFor = r => ms.filter(m => m.role !== r && !m.checkedAt).length;   // 상대가 보낸 것 중 내가 아직 확인 안 한 것
-  $('#memo-count').textContent = ms.length ? `${CREATOR} 확인 대기 ${waitFor('creator')}건 · 매니저 확인 대기 ${waitFor('manager')}건` : '';
+  $('#memo-count').textContent = ms.length ? `${CREATOR} 확인 대기 ${waitFor('creator')}건 · 매니저 확인 대기 ${waitFor('manager')}건` : '지지부부님과 소셜링이 주고받는 메모';
+  const unread = waitFor(ROLE), ub = $('#memo-unread'); ub.hidden = !unread; ub.textContent = unread;
   let lastDay = '', html = '';
   for (const m of ms) {
     const d = new Date(m.at), day = isNaN(d) ? '' : `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()} (${DOW[d.getDay()]})`;
@@ -1142,6 +1212,19 @@ $('#memo-list').addEventListener('click', async e => {
   if (p) { p.disabled = true; await memoAction({ action: p.dataset.on === '1' ? 'pin' : 'unpin', id: p.dataset.pin }); }
 });
 document.querySelectorAll('.who [data-role]').forEach(b => b.addEventListener('click', () => setRole(b.dataset.role)));
+// 메모장 사이드: 넓은 화면은 기본으로 열림, 좁은 화면은 버튼으로 열기
+const wide = () => matchMedia('(min-width:1280px)').matches;
+function setMemoOpen(open, remember = true) {
+  document.body.classList.toggle('memo-open', open);
+  $('#memo-toggle').setAttribute('aria-expanded', open);
+  if (remember) try { localStorage.setItem('memo-open', open ? '1' : '0'); } catch (_) {}
+  if (open) { const l = $('#memo-list'); l.scrollTop = l.scrollHeight; if (!wide()) $('#memo-text').focus(); }
+  Object.values(charts).forEach(c => c && c.resize && c.resize());
+}
+$('#memo-toggle').addEventListener('click', () => setMemoOpen(true));
+$('#memo-close').addEventListener('click', () => { setMemoOpen(false); $('#memo-toggle').focus(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && document.body.classList.contains('memo-open') && !wide() && $('#notice-modal').hidden) setMemoOpen(false); });
+{ let saved = null; try { saved = localStorage.getItem('memo-open'); } catch (_) {} setMemoOpen(saved === null ? wide() : saved === '1' && (wide() || false), false); }
 setRole(ROLE);
 
 /* ── 탭 ── */
@@ -1266,19 +1349,20 @@ function renderInbound() {
   const ym = todayIso().slice(0, 7), thisM = it.filter(x => x.date && x.date.startsWith(ym)).length;
   const prevYm = (() => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return iso(d).slice(0, 7); })();
   const prevM = it.filter(x => x.date && x.date.startsWith(prevYm)).length;
-  const cc = k => it.filter(x => chanOf(x).k === k).length;
+  const cc = k => it.filter(x => chanOf(x).k === k).length, sg = k => it.filter(x => x.stage === k).length;
   $('#in-kpis').innerHTML =
     kpi('채널 확인 대기', `${cc('pending')}건`, cc('pending') ? '눌러서 바로 체크하기' : '모두 확인했어요', true, 'pending') +
     kpi('전체 문의', `${num(it.length)}건`, `이번 달 ${thisM}건 · 지난달 ${prevM}건`, false, 'all') +
     kpi('채널 진행 희망 (Y)', `${cc('y')}건`, `진행 안 함 ${cc('n')} · 보류 ${cc('hold')} · 선제안 ${cc('proposal')}`, false, 'y') +
-    kpi('광고 확정', `${cnt('yes')}건`, `진행 중 ${cnt('wip')} · 거절·불발 ${cnt('no')}`, false, 'confirmed');
+    kpi('광고 확정 (픽스)', `${sg('fix')}건`, `1차 회신 ${sg('reply')} · 리마인드 ${sg('remind')} · 불발 ${sg('fail')}`, false, 'confirmed');
+  renderStages();
   renderPending();
 
   // 월별
   const months = [...new Set(it.filter(x => x.date && x.date >= '2025-01-01').map(x => x.date.slice(0, 7)))].sort();
   draw('c-in-month', { type: 'bar', data: { labels: months.map(m => `${m.slice(2, 4)}.${+m.slice(5)}월`),
-    datasets: ['yes', 'wip', 'no', 'none'].map(k => ({ label: STATUS[k], data: months.map(m => it.filter(x => x.status === k && x.date && x.date.startsWith(m)).length),
-      backgroundColor: k === 'none' ? alpha(css('--faint'), .5) : css(STATUS_COLOR[k]), maxBarThickness: 34 })) },
+    datasets: ['fix', 'reply', 'remind', 'etc', 'fail', 'none'].map(k => ({ label: STAGE_LABEL[k], data: months.map(m => it.filter(x => x.stage === k && x.date && x.date.startsWith(m)).length),
+      backgroundColor: k === 'none' ? alpha(css('--faint'), .5) : css(STAGE_COLOR[k]), maxBarThickness: 34 })) },
     options: base({ scales: { x: { stacked: true, grid: { display: false }, ticks: { color: css('--muted') } }, y: { stacked: true, grid: { color: css('--line') }, border: { display: false }, ticks: { color: css('--muted'), precision: 0 } } } }) });
   // 카테고리
   const catG = c => clean((c || '').split('(')[0]) || '미기재';
@@ -1311,9 +1395,32 @@ function chanOf(x) {
 }
 const CHAN_CLASS = { y: 'p-yes', n: 'p-no', hold: 'p-none', pending: 'p-wip', proposal: 'p-none', other: 'p-none' };
 const chanPill = x => { const c = chanOf(x); return c.k === 'none' ? '<span class="note">–</span>' : `<span class="pill ${CHAN_CLASS[c.k]}">${esc(c.label)}</span>`; };
+const linkHtml = x => x.links && x.links.length ? `<div class="links">${x.links.slice(0, 3).map(u => { let h = u; try { h = new URL(u).hostname.replace(/^www\./, ''); } catch (_) {} return `<a href="${esc(u)}" target="_blank" rel="noopener">🔗 ${esc(h.length > 26 ? h.slice(0, 25) + '…' : h)} ↗</a>`; }).join('')}</div>` : '';
+const STAGE_COLOR = { none: '--faint', reply: '--c-upload', remind: '--warn', etc: '--c-tocreator', fix: '--good', fail: '--bad' };
+const stagePill = k => `<span class="pill" style="background:var(--sunk);color:var(${STAGE_COLOR[k]})">${STAGE_LABEL[k]}</span>`;
 const decideReady = () => typeof memoReady === 'function' && memoReady();
 function pendingItems() { return D.inbound ? D.inbound.items.filter(x => chanOf(x).k === 'pending').sort((a, b) => (b.date || '').localeCompare(a.date || '')) : []; }
 function updateBadge() { const n = pendingItems().length, b = $('#in-badge'); b.hidden = !n; b.textContent = n; }
+let stageScope = 'y';
+function renderStages() {
+  const I = D.inbound; if (!I) return;
+  const base = I.items.filter(x => stageScope === 'all' || chanOf(x).k === 'y'), n = base.length || 1;
+  const sg = k => base.filter(x => x.stage === k).length;
+  $('#stage-bar').innerHTML = STAGES.map(([k]) => sg(k) ? `<span title="${STAGE_LABEL[k]} ${sg(k)}건" style="width:${sg(k) / n * 100}%;background:${k === 'none' ? alpha(css('--faint'), .5) : css(STAGE_COLOR[k])}"></span>` : '').join('');
+  $('#stage-chips').innerHTML = STAGES.map(([k, l]) => `<button type="button" class="stage" data-stage="${k}"><span><i class="sw" style="background:var(${STAGE_COLOR[k]})"></i>${l}</span><b>${sg(k)}</b><small>${Math.round(sg(k) / n * 100)}%</small></button>`).join('');
+  // 답을 기다리는 건 (1차 회신 · 리마인드)
+  const today = todayIso();
+  const wait = base.filter(x => x.stage === 'reply' || x.stage === 'remind').sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  $('#stage-wait').innerHTML = wait.length ? `<h4 style="margin:6px 0 2px;font-size:13px;color:var(--muted)">브랜드 답변 기다리는 건 ${wait.length}건 · 오래된 순</h4><div class="waitlist">${wait.slice(0, 12).map(x =>
+    `<div><b>${esc(x.brand)}</b>${stagePill(x.stage)} <small>${esc(x.statusRaw)}${x.date ? ` · 문의 ${Math.round((toD(today) - toD(x.date)) / 864e5)}일째` : ''}</small></div>`).join('')}</div>${wait.length > 12 ? `<p class="note">외 ${wait.length - 12}건은 아래 목록에서 볼 수 있어요.</p>` : ''}` : '';
+}
+$('#stage-panel').addEventListener('click', e => {
+  const sc = e.target.closest('[data-scope]');
+  if (sc) { stageScope = sc.dataset.scope; document.querySelectorAll('#stage-panel [data-scope]').forEach(b => b.setAttribute('aria-pressed', b === sc)); renderStages(); return; }
+  const st = e.target.closest('[data-stage]');
+  if (st) { setInFilter(stageScope === 'y' ? 'y' : '', st.dataset.stage); jumpTo($('#in-list-head')); }
+});
+
 function renderPending() {
   const list = pendingItems(), today = todayIso(), ready = decideReady();
   $('#pend-title').textContent = `채널 확인 대기 ${list.length}건`;
@@ -1326,6 +1433,7 @@ function renderPending() {
       <div class="top"><div><b>${esc(x.brand) || '(브랜드 미기재)'}</b><small>${x.agency && x.agency !== '-' ? esc(x.agency) + ' · ' : ''}${x.date ? x.date.slice(2).replace(/-/g, '.') + ' 문의' : esc(x.rawDate)}</small></div>
         ${days !== null ? `<span class="age${days >= 7 ? ' old' : ''}">${days === 0 ? '오늘' : days + '일째'}</span>` : ''}</div>
       <div class="prod">${esc(x.product)}</div>
+      ${linkHtml(x)}
       <div class="facts">${[x.cat, x.type, x.platform || x.channel, x.wish && '희망 ' + x.wish, SHOW_FEES && x.fee].filter(Boolean).map(t => `<span>${esc(t)}</span>`).join('')}</div>
       ${x.comm || x.note ? `<div class="comm">${esc([x.comm, x.note].filter(Boolean).join(' · '))}</div>` : ''}
       ${ready ? `<input type="text" maxlength="200" placeholder="의견 (선택) 예: 일정만 맞으면 좋아요" aria-label="${esc(x.brand)} 의견">
@@ -1364,7 +1472,7 @@ $('#in-kpis').addEventListener('click', e => {
   const b = e.target.closest('[data-jump]'); if (!b) return;
   const j = b.dataset.jump;
   if (j === 'pending') { jumpTo($('#pend-panel')); return; }
-  setInFilter(j === 'y' ? 'y' : '', j === 'confirmed' ? 'yes' : '');
+  setInFilter(j === 'y' ? 'y' : '', j === 'confirmed' ? 'fix' : '');
   jumpTo($('#in-list-head'));
 });
 $('#in-reset').addEventListener('click', () => setInFilter('', ''));
@@ -1380,19 +1488,19 @@ $('#in-table').addEventListener('change', e => {
 function renderInboundTable() {
   const I = D.inbound; if (!I) return;
   const q = $('#in-q').value.trim().toLowerCase(), st = $('#in-status').value, tp = $('#in-type').value, mo = $('#in-month').value, ch = $('#in-chan').value;
-  const rows = I.items.filter(x => (!ch || chanOf(x).k === ch) && (!st || x.status === st) && (!tp || x.type.includes(tp)) && (!mo || (x.date || '').startsWith(mo)) &&
+  const rows = I.items.filter(x => (!ch || chanOf(x).k === ch) && (!st || x.stage === st) && (!tp || x.type.includes(tp)) && (!mo || (x.date || '').startsWith(mo)) &&
     (!q || [x.brand, x.agency, x.product, x.cat, x.comm, x.note].join(' ').toLowerCase().includes(q)))
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   $('#in-count').textContent = `${rows.length}건 · 최근 문의 순`;
   const filtered = !!(q || st || tp || mo || ch);
-  $('#in-list-title').textContent = ch === 'y' && !st ? '문의 목록 · 채널 진행 희망' : st === 'yes' && !ch ? '문의 목록 · 광고 확정' : '문의 목록';
+  $('#in-list-title').textContent = '문의 목록' + [ch && ' · 채널 ' + ({ y: '진행 희망', n: '진행 안 함', hold: '보류', pending: '확인 대기', proposal: '선제안' }[ch] || ch), st && ' · ' + STAGE_LABEL[st]].filter(Boolean).join('');
   $('#in-reset').hidden = !filtered;
   const shown = rows.slice(0, inLimit);
-  $('#in-table').innerHTML = `<thead><tr><th>문의일</th><th>채널 의사</th><th>진행 상태</th><th>브랜드</th><th>제품 · 카테고리</th><th>유형</th><th>요청 플랫폼 · 희망 일정</th><th>소통 현황</th><th>담당</th>${SHOW_FEES ? '<th class="n">단가</th>' : ''}${SHOW_CONTACTS ? '<th>연락처</th>' : ''}</tr></thead><tbody>${shown.map(x => `<tr>
+  $('#in-table').innerHTML = `<thead><tr><th>문의일</th><th>채널 의사</th><th>소통 단계</th><th>브랜드</th><th>제품 · 카테고리</th><th>유형</th><th>요청 플랫폼 · 희망 일정</th><th>소통 현황</th><th>담당</th>${SHOW_FEES ? '<th class="n">단가</th>' : ''}${SHOW_CONTACTS ? '<th>연락처</th>' : ''}</tr></thead><tbody>${shown.map(x => `<tr>
     <td class="nw">${x.date ? x.date.slice(2).replace(/-/g, '.') : esc(x.rawDate)}</td>
     <td class="nw">${chanPill(x)}${decideReady() && x.row >= CHANNEL_CHECK_FROM_ROW ? `<br><select class="chan-sel" data-row="${x.row}" aria-label="${esc(x.brand)} 채널 의사 변경">${[['', '바꾸기…'], ['y', '진행 희망 (Y)'], ['n', '진행 안 함 (N)'], ['hold', '보류'], ['clear', '선택 취소']].map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>` : ''}</td>
-    <td class="nw"><span class="pill p-${x.status}">${STATUS[x.status]}</span>${x.statusRaw && x.statusRaw.toLowerCase() !== 'y' && x.statusRaw.toLowerCase() !== 'n' ? `<small>${esc(x.statusRaw)}</small>` : ''}${x.done ? '<small>프로젝트 완료</small>' : ''}</td>
-    <td><b>${esc(x.brand) || '–'}</b>${x.agency && x.agency !== '-' ? `<small>${esc(x.agency)}</small>` : ''}</td>
+    <td class="nw">${stagePill(x.stage)}${x.statusRaw && !/^(y|n|-)$/i.test(x.statusRaw) ? `<small style="white-space:normal;min-width:110px">${esc(x.statusRaw)}</small>` : ''}${x.done ? '<small>프로젝트 완료</small>' : ''}</td>
+    <td><b>${esc(x.brand) || '–'}</b>${x.agency && x.agency !== '-' ? `<small>${esc(x.agency)}</small>` : ''}${linkHtml(x)}</td>
     <td style="min-width:200px">${esc(x.product)}<small>${esc(x.cat)}</small></td>
     <td class="nw">${esc(x.type)}</td>
     <td style="min-width:140px">${esc(x.platform || x.channel)}${x.wish ? `<small>${esc(x.wish)}</small>` : ''}</td>
