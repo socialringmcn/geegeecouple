@@ -427,11 +427,7 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
       <div class="dec-grid" id="pend-list"></div>
     </section>
     <section class="panel wide" id="stage-panel">
-      <div class="phead"><div><h3>매니저 소통 현황</h3><p>진행확정 여부 칸 기준 · 단계를 누르면 아래 목록이 걸러져요</p></div>
-        <div class="seg" role="group" aria-label="범위">
-          <button type="button" data-scope="y" aria-pressed="true">채널 진행 희망 건</button>
-          <button type="button" data-scope="all" aria-pressed="false">전체 문의</button>
-        </div></div>
+      <div class="phead"><div><h3>매니저 소통 현황 <span class="note" id="stage-total"></span></h3><p id="stage-desc">진행확정 여부 칸 기준 · 단계를 누르면 아래 목록이 걸러져요</p></div></div>
       <div class="stagebar" id="stage-bar"></div>
       <div class="stages" id="stage-chips"></div>
       <div id="stage-wait"></div>
@@ -454,7 +450,7 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
         <div class="phead" id="in-list-head"><div><h3 id="in-list-title">문의 목록</h3><p id="in-count"></p></div><button type="button" class="btn" id="in-reset" hidden>필터 해제</button></div>
         <div class="tools">
           <input type="search" id="in-q" placeholder="브랜드, 제품, 대행사 검색" aria-label="문의 검색">
-          <select id="in-chan" aria-label="채널 의사"><option value="">채널 의사 전체</option><option value="pending">확인 대기</option><option value="y">진행 희망 (Y)</option><option value="n">진행 안 함 (N)</option><option value="hold">보류</option><option value="proposal">선제안</option></select>
+          <select id="in-chan" aria-label="채널 의사"><option value="">채널 의사 전체</option><option value="active">진행 안 함 제외 (소통 대상)</option><option value="pending">확인 대기</option><option value="y">진행 희망 (Y)</option><option value="n">진행 안 함 (N)</option><option value="hold">보류</option><option value="proposal">선제안</option></select>
           <select id="in-status" aria-label="소통 단계"><option value="">소통 단계 전체</option><option value="none">소통 전</option><option value="reply">1차 회신</option><option value="remind">리마인드</option><option value="etc">기타 진행</option><option value="fix">픽스</option><option value="fail">불발</option></select>
           <select id="in-type" aria-label="유형"><option value="">전체 유형</option></select>
           <select id="in-month" aria-label="문의 월"><option value="">전체 기간</option></select>
@@ -1401,10 +1397,14 @@ const stagePill = k => `<span class="pill" style="background:var(--sunk);color:v
 const decideReady = () => typeof memoReady === 'function' && memoReady();
 function pendingItems() { return D.inbound ? D.inbound.items.filter(x => chanOf(x).k === 'pending').sort((a, b) => (b.date || '').localeCompare(a.date || '')) : []; }
 function updateBadge() { const n = pendingItems().length, b = $('#in-badge'); b.hidden = !n; b.textContent = n; }
-let stageScope = 'y';
+// 소통 현황 대상: 채널 확인 시작 행 이후 문의 중 채널이 '진행 안 함(N)'을 고른 건은 제외 (거절 회신 후 종료)
+const inStageScope = x => x.row >= CHANNEL_CHECK_FROM_ROW && chanOf(x).k !== 'n';
 function renderStages() {
   const I = D.inbound; if (!I) return;
-  const base = I.items.filter(x => stageScope === 'all' || chanOf(x).k === 'y'), n = base.length || 1;
+  const base = I.items.filter(inStageScope), n = base.length || 1;
+  const by = k => base.filter(x => chanOf(x).k === k).length;
+  $('#stage-total').textContent = `${base.length}건`;
+  $('#stage-desc').textContent = `${CHANNEL_CHECK_FROM_ROW}행 이후 문의 중 채널이 진행 안 함(N)을 고른 건은 거절 회신으로 끝나서 뺐어요 · 진행 희망 ${by('y')} · 선제안 ${by('proposal')} · 보류 ${by('hold')} · 확인 대기 ${by('pending')}${by('other') ? ' · 기타 ' + by('other') : ''} · 단계를 누르면 아래 목록이 걸러져요`;
   const sg = k => base.filter(x => x.stage === k).length;
   $('#stage-bar').innerHTML = STAGES.map(([k]) => sg(k) ? `<span title="${STAGE_LABEL[k]} ${sg(k)}건" style="width:${sg(k) / n * 100}%;background:${k === 'none' ? alpha(css('--faint'), .5) : css(STAGE_COLOR[k])}"></span>` : '').join('');
   $('#stage-chips').innerHTML = STAGES.map(([k, l]) => `<button type="button" class="stage" data-stage="${k}"><span><i class="sw" style="background:var(${STAGE_COLOR[k]})"></i>${l}</span><b>${sg(k)}</b><small>${Math.round(sg(k) / n * 100)}%</small></button>`).join('');
@@ -1415,10 +1415,8 @@ function renderStages() {
     `<div><b>${esc(x.brand)}</b>${stagePill(x.stage)} <small>${esc(x.statusRaw)}${x.date ? ` · 문의 ${Math.round((toD(today) - toD(x.date)) / 864e5)}일째` : ''}</small></div>`).join('')}</div>${wait.length > 12 ? `<p class="note">외 ${wait.length - 12}건은 아래 목록에서 볼 수 있어요.</p>` : ''}` : '';
 }
 $('#stage-panel').addEventListener('click', e => {
-  const sc = e.target.closest('[data-scope]');
-  if (sc) { stageScope = sc.dataset.scope; document.querySelectorAll('#stage-panel [data-scope]').forEach(b => b.setAttribute('aria-pressed', b === sc)); renderStages(); return; }
   const st = e.target.closest('[data-stage]');
-  if (st) { setInFilter(stageScope === 'y' ? 'y' : '', st.dataset.stage); jumpTo($('#in-list-head')); }
+  if (st) { setInFilter('active', st.dataset.stage); jumpTo($('#in-list-head')); }
 });
 
 function renderPending() {
@@ -1488,12 +1486,12 @@ $('#in-table').addEventListener('change', e => {
 function renderInboundTable() {
   const I = D.inbound; if (!I) return;
   const q = $('#in-q').value.trim().toLowerCase(), st = $('#in-status').value, tp = $('#in-type').value, mo = $('#in-month').value, ch = $('#in-chan').value;
-  const rows = I.items.filter(x => (!ch || chanOf(x).k === ch) && (!st || x.stage === st) && (!tp || x.type.includes(tp)) && (!mo || (x.date || '').startsWith(mo)) &&
+  const rows = I.items.filter(x => (!ch || (ch === 'active' ? inStageScope(x) : chanOf(x).k === ch)) && (!st || x.stage === st) && (!tp || x.type.includes(tp)) && (!mo || (x.date || '').startsWith(mo)) &&
     (!q || [x.brand, x.agency, x.product, x.cat, x.comm, x.note].join(' ').toLowerCase().includes(q)))
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   $('#in-count').textContent = `${rows.length}건 · 최근 문의 순`;
   const filtered = !!(q || st || tp || mo || ch);
-  $('#in-list-title').textContent = '문의 목록' + [ch && ' · 채널 ' + ({ y: '진행 희망', n: '진행 안 함', hold: '보류', pending: '확인 대기', proposal: '선제안' }[ch] || ch), st && ' · ' + STAGE_LABEL[st]].filter(Boolean).join('');
+  $('#in-list-title').textContent = '문의 목록' + [ch && ' · ' + (ch === 'active' ? '' : '채널 ') + ({ y: '진행 희망', n: '진행 안 함', hold: '보류', pending: '확인 대기', proposal: '선제안', active: '소통 대상' }[ch] || ch), st && ' · ' + STAGE_LABEL[st]].filter(Boolean).join('');
   $('#in-reset').hidden = !filtered;
   const shown = rows.slice(0, inLimit);
   $('#in-table').innerHTML = `<thead><tr><th>문의일</th><th>채널 의사</th><th>소통 단계</th><th>브랜드</th><th>제품 · 카테고리</th><th>유형</th><th>요청 플랫폼 · 희망 일정</th><th>소통 현황</th><th>담당</th>${SHOW_FEES ? '<th class="n">단가</th>' : ''}${SHOW_CONTACTS ? '<th>연락처</th>' : ''}</tr></thead><tbody>${shown.map(x => `<tr>
