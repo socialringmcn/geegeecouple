@@ -451,7 +451,7 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
         <div class="tools">
           <input type="search" id="in-q" placeholder="브랜드, 제품, 대행사 검색" aria-label="문의 검색">
           <select id="in-chan" aria-label="채널 의사"><option value="">채널 의사 전체</option><option value="active">진행 안 함 제외 (소통 대상)</option><option value="pending">확인 대기</option><option value="y">진행 희망 (Y)</option><option value="n">진행 안 함 (N)</option><option value="hold">보류</option><option value="proposal">선제안</option></select>
-          <select id="in-status" aria-label="소통 단계"><option value="">소통 단계 전체</option><option value="none">소통 전</option><option value="reply">1차 회신</option><option value="remind">리마인드</option><option value="etc">기타 진행</option><option value="fix">픽스</option><option value="fail">불발</option></select>
+          <select id="in-status" aria-label="소통 단계"><option value="">소통 단계 전체</option><option value="none">소통 전</option><option value="reply">1차 회신</option><option value="remind">리마인드</option><option value="etc">기타 진행</option><option value="fix">픽스</option><option value="fail">불발</option><option value="reject">거절 (채널 진행 안 함)</option></select>
           <select id="in-type" aria-label="유형"><option value="">전체 유형</option></select>
           <select id="in-month" aria-label="문의 월"><option value="">전체 기간</option></select>
         </div>
@@ -873,7 +873,7 @@ function findLinks(text) {
 }
 // 진행확정 여부 칸 → 매니저 소통 단계
 const STAGES = [['none', '소통 전'], ['reply', '1차 회신'], ['remind', '리마인드'], ['etc', '기타 진행'], ['fix', '픽스'], ['fail', '불발']];
-const STAGE_LABEL = Object.fromEntries(STAGES);
+const STAGE_LABEL = { ...Object.fromEntries(STAGES), reject: '거절' };   // 거절 = 채널이 진행 안 함(N)을 골라 거절 회신 후 종료
 function stageOf(raw) {
   const t = clean(raw), l = t.toLowerCase();
   if (!t || t === '-') return 'none';
@@ -1345,19 +1345,19 @@ function renderInbound() {
   const ym = todayIso().slice(0, 7), thisM = it.filter(x => x.date && x.date.startsWith(ym)).length;
   const prevYm = (() => { const d = new Date(); d.setDate(1); d.setMonth(d.getMonth() - 1); return iso(d).slice(0, 7); })();
   const prevM = it.filter(x => x.date && x.date.startsWith(prevYm)).length;
-  const cc = k => it.filter(x => chanOf(x).k === k).length, sg = k => it.filter(x => x.stage === k).length;
+  const cc = k => it.filter(x => chanOf(x).k === k).length, sg = k => it.filter(x => stageEff(x) === k).length;
   $('#in-kpis').innerHTML =
     kpi('채널 확인 대기', `${cc('pending')}건`, cc('pending') ? '눌러서 바로 체크하기' : '모두 확인했어요', true, 'pending') +
     kpi('전체 문의', `${num(it.length)}건`, `이번 달 ${thisM}건 · 지난달 ${prevM}건`, false, 'all') +
     kpi('채널 진행 희망 (Y)', `${cc('y')}건`, `진행 안 함 ${cc('n')} · 보류 ${cc('hold')} · 선제안 ${cc('proposal')}`, false, 'y') +
-    kpi('광고 확정 (픽스)', `${sg('fix')}건`, `1차 회신 ${sg('reply')} · 리마인드 ${sg('remind')} · 불발 ${sg('fail')}`, false, 'confirmed');
+    kpi('광고 확정 (픽스)', `${sg('fix')}건`, `1차 회신 ${sg('reply')} · 리마인드 ${sg('remind')} · 불발 ${sg('fail')} · 거절 ${sg('reject')}`, false, 'confirmed');
   renderStages();
   renderPending();
 
   // 월별
   const months = [...new Set(it.filter(x => x.date && x.date >= '2025-01-01').map(x => x.date.slice(0, 7)))].sort();
   draw('c-in-month', { type: 'bar', data: { labels: months.map(m => `${m.slice(2, 4)}.${+m.slice(5)}월`),
-    datasets: ['fix', 'reply', 'remind', 'etc', 'fail', 'none'].map(k => ({ label: STAGE_LABEL[k], data: months.map(m => it.filter(x => x.stage === k && x.date && x.date.startsWith(m)).length),
+    datasets: ['fix', 'reply', 'remind', 'etc', 'fail', 'reject', 'none'].map(k => ({ label: STAGE_LABEL[k], data: months.map(m => it.filter(x => stageEff(x) === k && x.date && x.date.startsWith(m)).length),
       backgroundColor: k === 'none' ? alpha(css('--faint'), .5) : css(STAGE_COLOR[k]), maxBarThickness: 34 })) },
     options: base({ scales: { x: { stacked: true, grid: { display: false }, ticks: { color: css('--muted') } }, y: { stacked: true, grid: { color: css('--line') }, border: { display: false }, ticks: { color: css('--muted'), precision: 0 } } } }) });
   // 카테고리
@@ -1392,7 +1392,9 @@ function chanOf(x) {
 const CHAN_CLASS = { y: 'p-yes', n: 'p-no', hold: 'p-none', pending: 'p-wip', proposal: 'p-none', other: 'p-none' };
 const chanPill = x => { const c = chanOf(x); return c.k === 'none' ? '<span class="note">–</span>' : `<span class="pill ${CHAN_CLASS[c.k]}">${esc(c.label)}</span>`; };
 const linkHtml = x => x.links && x.links.length ? `<div class="links">${x.links.slice(0, 3).map(u => { let h = u; try { h = new URL(u).hostname.replace(/^www\./, ''); } catch (_) {} return `<a href="${esc(u)}" target="_blank" rel="noopener">🔗 ${esc(h.length > 26 ? h.slice(0, 25) + '…' : h)} ↗</a>`; }).join('')}</div>` : '';
-const STAGE_COLOR = { none: '--faint', reply: '--c-upload', remind: '--warn', etc: '--c-tocreator', fix: '--good', fail: '--bad' };
+const STAGE_COLOR = { none: '--faint', reply: '--c-upload', remind: '--warn', etc: '--c-tocreator', fix: '--good', fail: '--bad', reject: '--c-ad' };
+// 화면에 보이는 소통 단계: 채널이 진행 안 함(N)이면 시트 칸과 상관없이 '거절'
+const stageEff = x => (chanOf(x).k === 'n' ? 'reject' : x.stage);
 const stagePill = k => `<span class="pill" style="background:var(--sunk);color:var(${STAGE_COLOR[k]})">${STAGE_LABEL[k]}</span>`;
 const decideReady = () => typeof memoReady === 'function' && memoReady();
 function pendingItems() { return D.inbound ? D.inbound.items.filter(x => chanOf(x).k === 'pending').sort((a, b) => (b.date || '').localeCompare(a.date || '')) : []; }
@@ -1486,7 +1488,7 @@ $('#in-table').addEventListener('change', e => {
 function renderInboundTable() {
   const I = D.inbound; if (!I) return;
   const q = $('#in-q').value.trim().toLowerCase(), st = $('#in-status').value, tp = $('#in-type').value, mo = $('#in-month').value, ch = $('#in-chan').value;
-  const rows = I.items.filter(x => (!ch || (ch === 'active' ? inStageScope(x) : chanOf(x).k === ch)) && (!st || x.stage === st) && (!tp || x.type.includes(tp)) && (!mo || (x.date || '').startsWith(mo)) &&
+  const rows = I.items.filter(x => (!ch || (ch === 'active' ? inStageScope(x) : chanOf(x).k === ch)) && (!st || stageEff(x) === st) && (!tp || x.type.includes(tp)) && (!mo || (x.date || '').startsWith(mo)) &&
     (!q || [x.brand, x.agency, x.product, x.cat, x.comm, x.note].join(' ').toLowerCase().includes(q)))
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   $('#in-count').textContent = `${rows.length}건 · 최근 문의 순`;
@@ -1497,7 +1499,7 @@ function renderInboundTable() {
   $('#in-table').innerHTML = `<thead><tr><th>문의일</th><th>채널 의사</th><th>소통 단계</th><th>브랜드</th><th>제품 · 카테고리</th><th>유형</th><th>요청 플랫폼 · 희망 일정</th><th>소통 현황</th><th>담당</th>${SHOW_FEES ? '<th class="n">단가</th>' : ''}${SHOW_CONTACTS ? '<th>연락처</th>' : ''}</tr></thead><tbody>${shown.map(x => `<tr>
     <td class="nw">${x.date ? x.date.slice(2).replace(/-/g, '.') : esc(x.rawDate)}</td>
     <td class="nw">${chanPill(x)}${decideReady() && x.row >= CHANNEL_CHECK_FROM_ROW ? `<br><select class="chan-sel" data-row="${x.row}" aria-label="${esc(x.brand)} 채널 의사 변경">${[['', '바꾸기…'], ['y', '진행 희망 (Y)'], ['n', '진행 안 함 (N)'], ['hold', '보류'], ['clear', '선택 취소']].map(([v, t]) => `<option value="${v}">${t}</option>`).join('')}</select>` : ''}</td>
-    <td class="nw">${stagePill(x.stage)}${x.statusRaw && !/^(y|n|-)$/i.test(x.statusRaw) ? `<small style="white-space:normal;min-width:110px">${esc(x.statusRaw)}</small>` : ''}${x.done ? '<small>프로젝트 완료</small>' : ''}</td>
+    <td class="nw">${stagePill(stageEff(x))}${x.statusRaw && !/^(y|n|-)$/i.test(x.statusRaw) ? `<small style="white-space:normal;min-width:110px">${esc(x.statusRaw)}</small>` : ''}${x.done ? '<small>프로젝트 완료</small>' : ''}</td>
     <td><b>${esc(x.brand) || '–'}</b>${x.agency && x.agency !== '-' ? `<small>${esc(x.agency)}</small>` : ''}${linkHtml(x)}</td>
     <td style="min-width:200px">${esc(x.product)}<small>${esc(x.cat)}</small></td>
     <td class="nw">${esc(x.type)}</td>
