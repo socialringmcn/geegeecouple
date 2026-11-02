@@ -1394,7 +1394,8 @@ const chanPill = x => { const c = chanOf(x); return c.k === 'none' ? '<span clas
 const linkHtml = x => x.links && x.links.length ? `<div class="links">${x.links.slice(0, 3).map(u => { let h = u; try { h = new URL(u).hostname.replace(/^www\./, ''); } catch (_) {} return `<a href="${esc(u)}" target="_blank" rel="noopener">🔗 ${esc(h.length > 26 ? h.slice(0, 25) + '…' : h)} ↗</a>`; }).join('')}</div>` : '';
 const STAGE_COLOR = { none: '--faint', reply: '--c-upload', remind: '--warn', etc: '--c-tocreator', fix: '--good', fail: '--bad', reject: '--c-ad' };
 // 화면에 보이는 소통 단계: 채널이 진행 안 함(N)이면 시트 칸과 상관없이 '거절'
-const stageEff = x => (chanOf(x).k === 'n' ? 'reject' : x.stage);
+// 선제안(우리가 브랜드에 먼저 메일을 보낸 건)은 진행확정 여부 칸이 비어 있어도 '기타 진행'
+const stageEff = x => (chanOf(x).k === 'n' ? 'reject' : x.stage === 'none' && /선제안/.test(x.type) ? 'etc' : x.stage);
 const stagePill = k => `<span class="pill" style="background:var(--sunk);color:var(${STAGE_COLOR[k]})">${STAGE_LABEL[k]}</span>`;
 const decideReady = () => typeof memoReady === 'function' && memoReady();
 function pendingItems() { return D.inbound ? D.inbound.items.filter(x => chanOf(x).k === 'pending').sort((a, b) => (b.date || '').localeCompare(a.date || '')) : []; }
@@ -1407,12 +1408,12 @@ function renderStages() {
   const by = k => base.filter(x => chanOf(x).k === k).length;
   $('#stage-total').textContent = `${base.length}건`;
   $('#stage-desc').textContent = `${CHANNEL_CHECK_FROM_ROW}행 이후 문의 중 채널이 진행 안 함(N)을 고른 건은 거절 회신으로 끝나서 뺐어요 · 진행 희망 ${by('y')} · 선제안 ${by('proposal')} · 보류 ${by('hold')} · 확인 대기 ${by('pending')}${by('other') ? ' · 기타 ' + by('other') : ''} · 단계를 누르면 아래 목록이 걸러져요`;
-  const sg = k => base.filter(x => x.stage === k).length;
+  const sg = k => base.filter(x => stageEff(x) === k).length;
   $('#stage-bar').innerHTML = STAGES.map(([k]) => sg(k) ? `<span title="${STAGE_LABEL[k]} ${sg(k)}건" style="width:${sg(k) / n * 100}%;background:${k === 'none' ? alpha(css('--faint'), .5) : css(STAGE_COLOR[k])}"></span>` : '').join('');
   $('#stage-chips').innerHTML = STAGES.map(([k, l]) => `<button type="button" class="stage" data-stage="${k}"><span><i class="sw" style="background:var(${STAGE_COLOR[k]})"></i>${l}</span><b>${sg(k)}</b><small>${Math.round(sg(k) / n * 100)}%</small></button>`).join('');
   // 답을 기다리는 건 (1차 회신 · 리마인드)
   const today = todayIso();
-  const wait = base.filter(x => x.stage === 'reply' || x.stage === 'remind').sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+  const wait = base.filter(x => stageEff(x) === 'reply' || stageEff(x) === 'remind').sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   $('#stage-wait').innerHTML = wait.length ? `<h4 style="margin:6px 0 2px;font-size:13px;color:var(--muted)">브랜드 답변 기다리는 건 ${wait.length}건 · 오래된 순</h4><div class="waitlist">${wait.slice(0, 12).map(x =>
     `<div><b>${esc(x.brand)}</b>${stagePill(x.stage)} <small>${esc(x.statusRaw)}${x.date ? ` · 문의 ${Math.round((toD(today) - toD(x.date)) / 864e5)}일째` : ''}</small></div>`).join('')}</div>${wait.length > 12 ? `<p class="note">외 ${wait.length - 12}건은 아래 목록에서 볼 수 있어요.</p>` : ''}` : '';
 }
