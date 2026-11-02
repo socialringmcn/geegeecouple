@@ -117,6 +117,12 @@ details.notice[open] summary{margin-bottom:8px}
 .people span{font-size:12.5px;background:var(--sunk);border-radius:999px;padding:2px 9px}
 .people span.side{background:none;color:var(--muted);font-weight:700;padding-left:0}
 @media (max-width:560px){.mt-row{grid-template-columns:minmax(0,1fr) auto}.mt-row .people{grid-column:1 / -1;grid-row:2}}
+.kpi-btn{font:inherit;color:inherit;text-align:left;cursor:pointer;transition:border-color .15s,transform .15s}
+.kpi-btn:hover{border-color:var(--faint);transform:translateY(-1px)}
+.kpi-btn.hero:hover{border-color:var(--accent)}
+.kpi-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.kpi-btn .lbl{display:flex;justify-content:space-between;gap:6px}
+.kpi-btn .go{opacity:.6}
 .badge{display:inline-grid;place-items:center;min-width:19px;height:19px;padding:0 5px;margin-left:6px;border-radius:999px;background:var(--bad);color:#fff;font-size:11px;font-weight:800;vertical-align:1px}
 .pend-panel{border-color:color-mix(in srgb,var(--warn) 45%,var(--line))}
 .dec-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:12px}
@@ -422,10 +428,10 @@ footer{color:var(--faint);font-size:12.5px;padding-block:0 40px}
         <div class="rules" id="in-rules" hidden></div>
       </section>
       <section class="panel wide">
-        <div class="phead"><div><h3>문의 목록</h3><p id="in-count"></p></div></div>
+        <div class="phead" id="in-list-head"><div><h3 id="in-list-title">문의 목록</h3><p id="in-count"></p></div><button type="button" class="btn" id="in-reset" hidden>필터 해제</button></div>
         <div class="tools">
           <input type="search" id="in-q" placeholder="브랜드, 제품, 대행사 검색" aria-label="문의 검색">
-          <select id="in-chan" aria-label="채널 의사"><option value="">채널 의사 전체</option><option value="pending">확인 대기</option><option value="y">진행 희망 (Y)</option><option value="n">진행 안 함 (N)</option><option value="hold">보류</option></select>
+          <select id="in-chan" aria-label="채널 의사"><option value="">채널 의사 전체</option><option value="pending">확인 대기</option><option value="y">진행 희망 (Y)</option><option value="n">진행 안 함 (N)</option><option value="hold">보류</option><option value="proposal">선제안</option></select>
           <select id="in-status" aria-label="진행 상태"><option value="">전체 상태</option><option value="yes">확정</option><option value="wip">진행 중</option><option value="no">거절·불발</option><option value="none">미기재</option></select>
           <select id="in-type" aria-label="유형"><option value="">전체 유형</option></select>
           <select id="in-month" aria-label="문의 월"><option value="">전체 기간</option></select>
@@ -806,18 +812,19 @@ function parseInbound(rows) {
   checks.push({ st: 'info', t: `진행확정 여부 칸을 4가지로 분류했어요: 확정 ${cnt('yes')} · 진행 중 ${cnt('wip')} · 거절·불발 ${cnt('no')} · 미기재 ${cnt('none')}`,
     s: 'y/ok/픽스/확정/전달완료 → 확정, n/no/불발/거절/불가/마감 → 거절·불발, 1차 회신·리마인드 등 → 진행 중. 칸이 비면 소통 현황을 참고합니다.' });
   if (C.noteRows) checks.push({ st: 'info', t: `문의가 아니라 메모로 보이는 ${C.noteRows.length}줄은 목록에서 뺐어요 (${C.noteRows.join(', ')}행)` });
-  const from = items.filter(x => x.row >= CHANNEL_CHECK_FROM_ROW), ck = k => from.filter(x => chanKey(x.chanRaw, x.row) === k).length;
-  if (C.chan >= 0) checks.push({ st: 'info', t: `${CHANNEL_CHECK_FROM_ROW}행 이후 ${from.length}건의 채널 의사(A열): 진행 희망 ${ck('y')} · 진행 안 함 ${ck('n')} · 보류 ${ck('hold')} · 확인 대기 ${ck('pending')}${ck('other') ? ` · 기타 ${ck('other')}` : ''}`,
-    s: ck('other') ? '기타: ' + [...new Set(from.filter(x => chanKey(x.chanRaw, x.row) === 'other').map(x => x.chanRaw))].join(', ') : '' });
+  const from = items.filter(x => x.row >= CHANNEL_CHECK_FROM_ROW), ck = k => from.filter(x => chanKey(x.chanRaw, x.row, x.type) === k).length;
+  if (C.chan >= 0) checks.push({ st: 'info', t: `${CHANNEL_CHECK_FROM_ROW}행 이후 ${from.length}건의 채널 의사(A열): 진행 희망 ${ck('y')} · 진행 안 함 ${ck('n')} · 보류 ${ck('hold')} · 확인 대기 ${ck('pending')} · 선제안 ${ck('proposal')}${ck('other') ? ` · 기타 ${ck('other')}` : ''}`,
+    s: ck('other') ? '기타: ' + [...new Set(from.filter(x => chanKey(x.chanRaw, x.row, x.type) === 'other').map(x => x.chanRaw))].join(', ') : '' });
   else checks.push({ st: 'ng', t: '채널 의사(y/n) 열을 찾지 못했어요. 맨 첫 열에 y/n를 적고 있는지 확인해 주세요.' });
   return { items, rules: findRules(g), checks };
 }
 // 채널 의사 분류: y 진행 희망 · n 진행 안 함 · 보류 · (빈칸) 확인 대기
-function chanKey(raw, row) {
+function chanKey(raw, row, type) {
   const t = clean(raw).toLowerCase();
   if (/^(y|yes|o|ㅇ|예)$/.test(t)) return 'y';
   if (/^(n|no|x|아니오)$/.test(t)) return 'n';
   if (/보류|대기|hold/.test(t)) return 'hold';
+  if (!t && /선제안/.test(type || '')) return 'proposal';   // 우리가 브랜드에 먼저 제안한 건: 채널 확인 불필요
   if (!t) return row >= CHANNEL_CHECK_FROM_ROW ? 'pending' : 'none';
   return 'other';
 }
@@ -963,7 +970,9 @@ function alpha(hex, a) {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
 }
 const li = x => `<li class="${x.st}"><span class="ic">${x.st === 'ok' ? '✓' : x.st === 'ng' ? '!' : 'i'}</span><span>${esc(x.t)}${x.s ? `<small>${esc(x.s)}</small>` : ''}</span></li>`;
-const kpi = (l, v, s, hero) => `<div class="kpi${hero ? ' hero' : ''}"><span class="lbl">${l}</span><span class="val">${v}</span><span class="sub">${s || ''}</span></div>`;
+const kpi = (l, v, s, hero, jump) => jump
+  ? `<button type="button" class="kpi kpi-btn${hero ? ' hero' : ''}" data-jump="${jump}"><span class="lbl">${l}<span class="go" aria-hidden="true">→</span></span><span class="val">${v}</span><span class="sub">${s || ''}</span></button>`
+  : `<div class="kpi${hero ? ' hero' : ''}"><span class="lbl">${l}</span><span class="val">${v}</span><span class="sub">${s || ''}</span></div>`;
 
 const VIEWS = ['schedule', 'inbound', 'confirmed', 'ideas', 'stats', 'meetings'];
 const NAMES = { schedule: '통합 스케줄', inbound: '광고 인입 현황', confirmed: '광고 확정 진행건', ideas: '아이템 리스트', stats: '인게이지먼트·조회수', meetings: '회의록' };
@@ -1259,10 +1268,10 @@ function renderInbound() {
   const prevM = it.filter(x => x.date && x.date.startsWith(prevYm)).length;
   const cc = k => it.filter(x => chanOf(x).k === k).length;
   $('#in-kpis').innerHTML =
-    kpi('채널 확인 대기', `${cc('pending')}건`, cc('pending') ? '아래에서 진행 여부를 골라 주세요' : '모두 확인했어요', true) +
-    kpi('전체 문의', `${num(it.length)}건`, `이번 달 ${thisM}건 · 지난달 ${prevM}건`) +
-    kpi('채널 진행 희망 (Y)', `${cc('y')}건`, `진행 안 함 ${cc('n')} · 보류 ${cc('hold')} · ${CHANNEL_CHECK_FROM_ROW}행 이후`) +
-    kpi('광고 확정', `${cnt('yes')}건`, `진행 중 ${cnt('wip')} · 거절·불발 ${cnt('no')}`);
+    kpi('채널 확인 대기', `${cc('pending')}건`, cc('pending') ? '눌러서 바로 체크하기' : '모두 확인했어요', true, 'pending') +
+    kpi('전체 문의', `${num(it.length)}건`, `이번 달 ${thisM}건 · 지난달 ${prevM}건`, false, 'all') +
+    kpi('채널 진행 희망 (Y)', `${cc('y')}건`, `진행 안 함 ${cc('n')} · 보류 ${cc('hold')} · 선제안 ${cc('proposal')}`, false, 'y') +
+    kpi('광고 확정', `${cnt('yes')}건`, `진행 중 ${cnt('wip')} · 거절·불발 ${cnt('no')}`, false, 'confirmed');
   renderPending();
 
   // 월별
@@ -1297,10 +1306,10 @@ let LIVE_DEC = {};
 function chanOf(x) {
   const live = LIVE_DEC[x.row];
   const raw = live && live.brand === clean(x.brand) ? live.v : x.chanRaw;
-  const k = chanKey(raw, x.row);
-  return { k, raw, label: { y: '진행 희망 (Y)', n: '진행 안 함 (N)', hold: '보류', pending: '확인 대기', none: '–', other: raw }[k] };
+  const k = chanKey(raw, x.row, x.type);
+  return { k, raw, label: { y: '진행 희망 (Y)', n: '진행 안 함 (N)', hold: '보류', pending: '확인 대기', proposal: '선제안', none: '–', other: raw }[k] };
 }
-const CHAN_CLASS = { y: 'p-yes', n: 'p-no', hold: 'p-none', pending: 'p-wip', other: 'p-none' };
+const CHAN_CLASS = { y: 'p-yes', n: 'p-no', hold: 'p-none', pending: 'p-wip', proposal: 'p-none', other: 'p-none' };
 const chanPill = x => { const c = chanOf(x); return c.k === 'none' ? '<span class="note">–</span>' : `<span class="pill ${CHAN_CLASS[c.k]}">${esc(c.label)}</span>`; };
 const decideReady = () => typeof memoReady === 'function' && memoReady();
 function pendingItems() { return D.inbound ? D.inbound.items.filter(x => chanOf(x).k === 'pending').sort((a, b) => (b.date || '').localeCompare(a.date || '')) : []; }
@@ -1342,6 +1351,23 @@ async function decide(row, value, comment, btns) {
   }
 }
 function setDecisions(list) { LIVE_DEC = {}; (list || []).forEach(d => (LIVE_DEC[d.row] = { brand: clean(d.brand), v: d.v })); }
+// 요약 카드 → 해당 영역으로 이동 (+ 필터 적용)
+function jumpTo(el) {   // 상단 고정 바 높이만큼 띄워서 이동
+  const h = document.querySelector('header').getBoundingClientRect().height;
+  window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - h - 12, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+}
+function setInFilter(chan, status) {
+  $('#in-q').value = ''; $('#in-type').value = ''; $('#in-month').value = '';
+  $('#in-chan').value = chan; $('#in-status').value = status; inLimit = 50; renderInboundTable();
+}
+$('#in-kpis').addEventListener('click', e => {
+  const b = e.target.closest('[data-jump]'); if (!b) return;
+  const j = b.dataset.jump;
+  if (j === 'pending') { jumpTo($('#pend-panel')); return; }
+  setInFilter(j === 'y' ? 'y' : '', j === 'confirmed' ? 'yes' : '');
+  jumpTo($('#in-list-head'));
+});
+$('#in-reset').addEventListener('click', () => setInFilter('', ''));
 $('#pend-list').addEventListener('click', e => {
   const b = e.target.closest('[data-v]'); if (!b) return;
   const card = b.closest('.dec'); decide(+card.dataset.row, b.dataset.v, (card.querySelector('input') || {}).value || '', [...card.querySelectorAll('button')]);
@@ -1358,6 +1384,9 @@ function renderInboundTable() {
     (!q || [x.brand, x.agency, x.product, x.cat, x.comm, x.note].join(' ').toLowerCase().includes(q)))
     .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   $('#in-count').textContent = `${rows.length}건 · 최근 문의 순`;
+  const filtered = !!(q || st || tp || mo || ch);
+  $('#in-list-title').textContent = ch === 'y' && !st ? '문의 목록 · 채널 진행 희망' : st === 'yes' && !ch ? '문의 목록 · 광고 확정' : '문의 목록';
+  $('#in-reset').hidden = !filtered;
   const shown = rows.slice(0, inLimit);
   $('#in-table').innerHTML = `<thead><tr><th>문의일</th><th>채널 의사</th><th>진행 상태</th><th>브랜드</th><th>제품 · 카테고리</th><th>유형</th><th>요청 플랫폼 · 희망 일정</th><th>소통 현황</th><th>담당</th>${SHOW_FEES ? '<th class="n">단가</th>' : ''}${SHOW_CONTACTS ? '<th>연락처</th>' : ''}</tr></thead><tbody>${shown.map(x => `<tr>
     <td class="nw">${x.date ? x.date.slice(2).replace(/-/g, '.') : esc(x.rawDate)}</td>
